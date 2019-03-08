@@ -1,7 +1,9 @@
 [package]
-name = "sabipt"
+name = "sabiptrace"
 version = "0.1.0"
 authors = ["Kazuhiro Kobayashi <orihuzakihsayabok@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+nalgebra = "0.16.0"
+openexr = "0.6.0"
