@@ -29,7 +29,7 @@ impl Sphere {
     fn make_hit(&self, ray: &ray::Ray, dist: f32) -> Hit {
         let pos = ray.origin + ray.dir * dist;
         let gnorm = (pos - self.center).normalize();
-        let gx_approx = if gnorm[0] < 0.5 {
+        let gx_approx = if gnorm[0].abs() < 0.5 {
             V3::new(1.0, 0.0, 0.0)
         } else {
             V3::new(0.0, 1.0, 0.0)
