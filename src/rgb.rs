@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct RGB {
@@ -30,6 +30,9 @@ impl RGB {
     pub fn all(x: f32) -> Self {
         Self::new(x, x, x)
     }
+    pub fn max(&self) -> f32 {
+        self.r.max(self.g).max(self.b)
+    }
 }
 
 impl<'a> Add<&'a Self> for RGB {
@@ -47,6 +50,14 @@ impl Add for RGB {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         self.add(&rhs)
+    }
+}
+
+impl AddAssign for RGB {
+    fn add_assign(&mut self, rhs: Self) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
     }
 }
 
@@ -68,6 +79,14 @@ impl Sub for RGB {
     }
 }
 
+impl SubAssign for RGB {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.r -= rhs.r;
+        self.g -= rhs.g;
+        self.b -= rhs.b;
+    }
+}
+
 impl<'a> Mul<&'a Self> for RGB {
     type Output = Self;
     fn mul(self, rhs: &'a Self) -> Self {
@@ -86,6 +105,14 @@ impl Mul for RGB {
     }
 }
 
+impl MulAssign for RGB {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.r *= rhs.r;
+        self.g *= rhs.g;
+        self.b *= rhs.b;
+    }
+}
+
 impl Mul<f32> for RGB {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self {
@@ -94,6 +121,14 @@ impl Mul<f32> for RGB {
             g: self.g * rhs,
             b: self.b * rhs,
         }
+    }
+}
+
+impl MulAssign<f32> for RGB {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.r *= rhs;
+        self.g *= rhs;
+        self.b *= rhs;
     }
 }
 
@@ -115,6 +150,14 @@ impl Div for RGB {
     }
 }
 
+impl DivAssign for RGB {
+    fn div_assign(&mut self, rhs: Self) {
+        self.r /= rhs.r;
+        self.g /= rhs.g;
+        self.b /= rhs.b;
+    }
+}
+
 impl Div<f32> for RGB {
     type Output = Self;
     fn div(self, rhs: f32) -> Self {
@@ -123,5 +166,13 @@ impl Div<f32> for RGB {
             g: self.g / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+impl DivAssign<f32> for RGB {
+    fn div_assign(&mut self, rhs: f32) {
+        self.r /= rhs;
+        self.g /= rhs;
+        self.b /= rhs;
     }
 }

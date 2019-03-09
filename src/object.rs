@@ -15,6 +15,7 @@ fn merge_options<T, F: Fn(T, T) -> T>(x: Option<T>, y: Option<T>, merge: F) -> O
 pub struct ObjectHit {
     pub hit: shape::Hit,
     pub material: material::Material,
+    pub emission: Option<rgb::RGB>,
 }
 
 impl ObjectHit {
@@ -26,6 +27,7 @@ impl ObjectHit {
 pub struct SimpleObject {
     pub shape: shape::Sphere,
     pub material: material::Material,
+    pub emission: Option<rgb::RGB>,
 }
 
 pub struct ObjectList {
@@ -44,6 +46,7 @@ impl ObjectList {
             let new_hit = o.shape.test_hit(ray, tnear, tfar).map(|h| ObjectHit {
                 hit: h,
                 material: o.material.clone(),
+                emission: o.emission,
             });
             hit = ObjectHit::nearer_option(hit, new_hit);
         }
@@ -62,28 +65,3 @@ impl ObjectList {
     }
     */
 }
-
-/*
-
-pub struct Aggregate {
-    pub objects: Vec<Sphere>,
-}
-
-
-impl Aggregate {
-    pub fn new() -> Self{
-        Aggregate {
-            objects: vec![]
-        }
-    }
-    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, mut tfar: f32) -> Option<Hit> {
-        let mut hit = None::<Hit>;
-        for o in self.objects.iter() {
-            tfar = hit.as_ref().map_or(tfar, |h| h.dist);
-            let o_hit = o.test_hit(ray, tnear, tfar);
-            hit = Hit::nearer_option(hit, o_hit);
-        }
-        hit
-    }
-}
-*/

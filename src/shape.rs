@@ -6,6 +6,7 @@ pub struct Hit {
     pub dist: f32,
     pub pos: P3,
     pub gnorm: V3,
+    pub gx: V3,
 }
 
 #[derive(Clone)]
@@ -18,7 +19,18 @@ impl Sphere {
     fn make_hit(&self, ray: &ray::Ray, dist: f32) -> Hit {
         let pos = ray.origin + ray.dir * dist;
         let gnorm = (pos - self.center).normalize();
-        Hit { dist, pos, gnorm }
+        let gx_approx = if gnorm[0] < 0.5 {
+            V3::new(1.0, 0.0, 0.0)
+        } else {
+            V3::new(0.0, 1.0, 0.0)
+        };
+        let gx = (gx_approx - gx_approx.dot(&gnorm) * gnorm).normalize();
+        Hit {
+            dist,
+            pos,
+            gnorm,
+            gx,
+        }
     }
 
     pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<Hit> {

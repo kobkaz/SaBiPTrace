@@ -6,6 +6,7 @@ pub type V3 = Vector3<f32>;
 pub mod image;
 pub mod ray {
     use crate::*;
+    #[derive(Clone, Debug)]
     pub struct Ray {
         pub origin: P3,
         pub dir: V3,
@@ -19,5 +20,6 @@ pub mod ray {
 }
 pub mod material;
 pub mod object;
+pub mod pdf;
 pub mod rgb;
 pub mod shape;
