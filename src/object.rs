@@ -13,14 +13,14 @@ fn merge_options<T, F: Fn(T, T) -> T>(x: Option<T>, y: Option<T>, merge: F) -> O
 }
 
 pub struct ObjectHit {
-    pub hit: shape::Hit,
+    pub geom: shape::Hit,
     pub material: material::Material,
     pub emission: Option<rgb::RGB>,
 }
 
 impl ObjectHit {
     fn nearer_option(x: Option<Self>, y: Option<Self>) -> Option<Self> {
-        merge_options(x, y, |x, y| if x.hit.dist < y.hit.dist { x } else { y })
+        merge_options(x, y, |x, y| if x.geom.dist < y.geom.dist { x } else { y })
     }
 }
 
@@ -42,9 +42,9 @@ impl ObjectList {
     pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, mut tfar: f32) -> Option<ObjectHit> {
         let mut hit = None::<ObjectHit>;
         for o in self.objects.iter() {
-            tfar = hit.as_ref().map_or(tfar, |h| h.hit.dist);
+            tfar = hit.as_ref().map_or(tfar, |h| h.geom.dist);
             let new_hit = o.shape.test_hit(ray, tnear, tfar).map(|h| ObjectHit {
-                hit: h,
+                geom: h,
                 material: o.material.clone(),
                 emission: o.emission,
             });

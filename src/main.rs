@@ -32,6 +32,44 @@ impl View {
 
 struct Scene {
     objects: object::ObjectList,
+    lights: Vec<usize>,
+}
+
+impl Scene {
+    pub fn new(objects: Vec<object::SimpleObject>) -> Scene {
+        let lights = (0..objects.len())
+            .filter(|i| objects[*i].emission.is_some())
+            .collect();
+        Scene {
+            objects: object::ObjectList { objects },
+            lights,
+        }
+    }
+
+    pub fn sample_light<R: Rng>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>> {
+        use pdf::PdfSample;
+        use rand::seq::SliceRandom;
+        self.lights.choose(rng).map(|ix| {
+            let obj = &self.objects.objects[*ix];
+            let PdfSample { value: (p, n), pdf } = obj.shape.sample_surface(rng);
+            let e = obj.emission.unwrap();
+            PdfSample {
+                value: (p, n, e),
+                pdf: pdf / self.lights.len() as f32,
+            }
+        })
+    }
+
+    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<object::ObjectHit> {
+        self.objects.test_hit(ray, tnear, tfar)
+    }
+
+    pub fn visible(&self, x: P3, y: P3) -> bool {
+        let r = y - x;
+        let dist = r.norm();
+        let ray = Ray::new(x, r / dist);
+        self.test_hit(&ray, 1e-3, dist - 1e-3).is_none()
+    }
 }
 
 struct Renderer;
@@ -43,7 +81,7 @@ impl Renderer {
         for xi in 0..image.w() {
             for yi in 0..image.h() {
                 let mut accum = RGB::all(0.0);
-                let n = 100;
+                let n = 10;
                 for _i in 0..n {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
@@ -56,49 +94,69 @@ impl Renderer {
                         dy * px_size
                     };
                     let ray = view.ray_to(du, dv);
-                    accum = accum + self.radiance(scene, &ray, &mut rng);
+                    const USE_NEE: bool = false;
+                    accum = accum + self.radiance(USE_NEE, scene, &ray, &mut rng);
                 }
                 *image.at_mut(xi, yi) = accum / n as f32;
             }
         }
     }
 
-    fn radiance<R: Rng + Sized>(&self, scene: &Scene, ray: &Ray, rng: &mut R) -> RGB {
-        use material::Material::*;
+    fn radiance<R: Rng + Sized>(
+        &self,
+        enable_nee: bool,
+        scene: &Scene,
+        ray: &Ray,
+        rng: &mut R,
+    ) -> RGB {
         let mut depth = 0;
         let mut ray = ray.clone();
         let mut radiance = RGB::all(0.0);
         let mut throughput = RGB::all(1.0);
+        let mut prev_specular = true;
 
         loop {
             depth += 1;
-            let hit = scene.objects.test_hit(&ray, 1e-3, std::f32::MAX);
+            let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX);
             if let Some(hit) = hit {
-                if let Some(emission) = hit.emission {
-                    radiance += throughput * emission;
+                let hit_gnorm = hit.geom.gnorm;
+                let hit_xvec = hit.geom.gx;
+                let wout = -ray.dir;
+
+                if prev_specular || !enable_nee {
+                    if let Some(emission) = hit.emission {
+                        radiance += throughput * emission;
+                    }
+                }
+
+                if enable_nee {
+                    prev_specular = false;
+                    if let Some(light_sample) = scene.sample_light(rng) {
+                        let (light_point, light_normal, light_emission) = light_sample.value;
+                        if scene.visible(light_point, hit.geom.pos) {
+                            let g = hit.geom.g(&light_point, &light_normal);
+                            let light_dir = (light_point - hit.geom.pos).normalize();
+                            let bsdf = hit.material.bsdf(&hit_gnorm, &light_dir, &wout);
+                            radiance += throughput * light_emission * bsdf * g / light_sample.pdf;
+                        }
+                    }
                 }
 
                 let cont = pdf::RandomBool {
                     chance: throughput.max(),
-                }
-                .sample(rng);
+                };
+                let cont = cont.sample(rng);
                 if !cont.value {
                     break;
                 }
                 throughput /= cont.pdf;
 
-                let hit_gnorm = hit.hit.gnorm;
-                let hit_xvec = hit.hit.gx;
-                let Lambert(color) = hit.material;
-                throughput *=
-                    color * (std::f32::consts::FRAC_1_PI / 2.0) * hit_gnorm.dot(&ray.dir).abs();
-                let next_dir = pdf::UniformUnitHemisphere {
-                    normal: hit_gnorm,
-                    xvec: hit_xvec,
-                }
-                .sample(rng);
-                throughput /= next_dir.pdf;
-                ray = Ray::new(hit.hit.pos, next_dir.value);
+                let next = hit.material.sample_win(hit_gnorm, hit_xvec, wout, rng);
+                let win = next.value.0;
+                let bsdf = next.value.1;
+                throughput *= bsdf * hit_gnorm.dot(&win).abs();
+                throughput /= next.pdf;
+                ray = Ray::new(hit.geom.pos, win);
             } else {
                 break;
             }
@@ -107,30 +165,38 @@ impl Renderer {
     }
 }
 
+#[allow(dead_code)]
 fn make_scene() -> Scene {
     use material::Material::*;
     use shape::Sphere;
-    let mut scene = Scene {
-        objects: object::ObjectList::new(),
-    };
+    let mut objects = vec![];
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(-40.0, 0.0, 0.0),
-            radius: 30.0,
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 5.0,
         },
         material: Lambert(RGB::all(0.0)),
-        emission: Some(RGB::all(0.8)),
+        emission: Some(RGB::new(0.0, 10.0, 0.0)),
     });
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(40.0, 0.0, 0.0),
-            radius: 30.0,
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 20.0,
         },
         material: Lambert(RGB::all(1.0)),
         emission: None,
     });
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
+            radius: 5.0,
+        },
+        material: Lambert(RGB::all(0.0)),
+        emission: Some(RGB::new(0.0, 0.0, 10.0)),
+    });
+    /*
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(0.0, 0.0, 0.0),
             radius: 10000.0,
@@ -138,19 +204,19 @@ fn make_scene() -> Scene {
         material: Lambert(RGB::all(0.0)),
         emission: Some(RGB::new(0.0, 0.0, 0.05)),
     });
-    scene
+    */
+    Scene::new(objects)
 }
 
+#[allow(dead_code)]
 fn make_box() -> Scene {
     use material::Material::*;
     use shape::Sphere;
-    let mut scene = Scene {
-        objects: object::ObjectList::new(),
-    };
     const R: f32 = 10000.0;
     const L: f32 = 50.0;
+    let mut objects = vec![];
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(0.0, 0.0, -L - R),
             radius: R,
@@ -159,7 +225,7 @@ fn make_box() -> Scene {
         emission: None,
     });
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(L + R, 0.0, 0.0),
             radius: R,
@@ -168,7 +234,7 @@ fn make_box() -> Scene {
         emission: None,
     });
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(-L - R, 0.0, 0.0),
             radius: R,
@@ -177,7 +243,7 @@ fn make_box() -> Scene {
         emission: None,
     });
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(0.0, L + R, 0.0),
             radius: R,
@@ -186,7 +252,7 @@ fn make_box() -> Scene {
         emission: None,
     });
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(0.0, -L - R, 0.0),
             radius: R,
@@ -195,7 +261,7 @@ fn make_box() -> Scene {
         emission: None,
     });
 
-    scene.objects.objects.push(object::SimpleObject {
+    objects.push(object::SimpleObject {
         shape: Sphere {
             center: P3::new(0.0, 0.0, 0.0),
             radius: 10.0,
@@ -204,7 +270,7 @@ fn make_box() -> Scene {
         emission: Some(RGB::all(1e2)),
     });
 
-    scene
+    Scene::new(objects)
 }
 fn main() {
     let mut image = {
@@ -221,7 +287,7 @@ fn main() {
     };
 
     let renderer = Renderer;
-    let scene = make_box();
+    let scene = make_scene();
     renderer.render(&scene, &view, &mut image);
     image.write_exr("output/output.exr");
 }

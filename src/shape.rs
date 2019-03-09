@@ -1,4 +1,5 @@
 use crate::*;
+use rand::prelude::*;
 use rgb::RGB;
 
 #[derive(Clone)]
@@ -7,6 +8,15 @@ pub struct Hit {
     pub pos: P3,
     pub gnorm: V3,
     pub gx: V3,
+}
+
+impl Hit {
+    pub fn g(&self, x: &P3, n: &V3) -> f32 {
+        let r = x - self.pos;
+        let sq_dist = r.norm_squared();
+
+        (r.dot(n) * r.dot(&self.gnorm)).abs() / (sq_dist * sq_dist)
+    }
 }
 
 #[derive(Clone)]
@@ -54,6 +64,22 @@ impl Sphere {
             } else {
                 None
             }
+        }
+    }
+
+    pub fn sample_surface<R: Rng + Sized>(&self, rng: &mut R) -> pdf::PdfSample<(P3, V3)> {
+        use rand::distributions::Uniform;
+        let u1 = Uniform::<f32>::new(-1.0, 1.0);
+        let upi = Uniform::<f32>::new(-std::f32::consts::PI, std::f32::consts::PI);
+        let z = u1.sample(rng);
+        let theta = upi.sample(rng);
+        let r = (1.0 - z * z).sqrt();
+        let x = r * theta.cos();
+        let y = r * theta.sin();
+        let n = V3::new(x, y, z);
+        pdf::PdfSample {
+            value: (self.center + self.radius * n, n),
+            pdf: std::f32::consts::FRAC_1_PI / 4.0 / self.radius / self.radius,
         }
     }
     /*
