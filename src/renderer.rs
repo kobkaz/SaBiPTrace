@@ -13,7 +13,7 @@ impl Renderer {
         for xi in 0..image.w() {
             for yi in 0..image.h() {
                 let mut accum = RGB::all(0.0);
-                let n = 5;
+                let n = 10;
                 for _i in 0..n {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
@@ -26,7 +26,7 @@ impl Renderer {
                         dy * px_size
                     };
                     let ray = camera.ray_to(du, dv);
-                    const USE_NEE: bool = false;
+                    const USE_NEE: bool = true;
                     accum = accum + self.radiance(USE_NEE, scene, &ray, &mut rng);
                 }
                 *image.at_mut(xi, yi) = accum / n as f32;
@@ -51,9 +51,8 @@ impl Renderer {
             depth += 1;
             let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX);
             if let Some(hit) = hit {
-                let hit_gnorm = hit.geom.gnorm;
-                let hit_xvec = hit.geom.gx;
-                let wout = -ray.dir;
+                let hit_lc = hit.geom.lc();
+                let wout_local = hit_lc.w2l() * -ray.dir;
 
                 if prev_specular || !enable_nee {
                     if let Some(emission) = hit.emission {
@@ -68,7 +67,8 @@ impl Renderer {
                         if scene.visible(light_point, hit.geom.pos) {
                             let g = hit.geom.g(&light_point, &light_normal);
                             let light_dir = (light_point - hit.geom.pos).normalize();
-                            let bsdf = hit.material.bsdf(&hit_gnorm, &light_dir, &wout);
+                            let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
+
                             radiance += throughput * light_emission * bsdf * g / light_sample.pdf;
                         }
                     }
@@ -83,12 +83,13 @@ impl Renderer {
                 }
                 throughput /= cont.pdf;
 
-                let next = hit.material.sample_win(hit_gnorm, hit_xvec, wout, rng);
-                let win = next.value.0;
+                let next = hit.material.sample_win(wout_local, rng);
+                let win_local = next.value.0;
                 let bsdf = next.value.1;
-                throughput *= bsdf * hit_gnorm.dot(&win).abs();
+                let cos = win_local[2].abs();
+                throughput *= bsdf * cos;
                 throughput /= next.pdf;
-                ray = Ray::new(hit.geom.pos, win);
+                ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
             } else {
                 break;
             }

@@ -16,6 +16,10 @@ impl Hit {
 
         (r.dot(n) * r.dot(&self.gnorm)).abs() / (sq_dist * sq_dist)
     }
+
+    pub fn lc(&self) -> LocalCoord {
+        LocalCoord::new_zx(&self.pos, &self.gnorm, &self.gx)
+    }
 }
 
 #[derive(Clone, Debug)]

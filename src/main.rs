@@ -149,13 +149,13 @@ fn main() {
     let view = {
         let origin = P3::new(0.0, 0.0, 200.0);
         let view_at = P3::new(0.0, 0.0, 0.0);
-        let view_up = V3::new(0.0, 1.0, 0.0);
+        let view_up = V3::new(0.1, 1.0, 0.0);
         let fov_degree = 45.0;
         Camera::new(origin, view_at, view_up, fov_degree)
     };
 
     let renderer = Renderer;
-    let scene = make_plane_scene();
+    let scene = make_box();
     renderer.render(&scene, &view, &mut image);
     image.write_exr("output/output.exr");
 }
