@@ -5,6 +5,6 @@ authors = ["Kazuhiro Kobayashi <orihuzakihsayabok@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-nalgebra = "0.16.0"
+nalgebra = "0.17.0"
 openexr = "0.6.0"
 rand = "0.6"
