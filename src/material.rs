@@ -1,6 +1,6 @@
 use crate::*;
+
 use rand::prelude::*;
-use rgb::RGB;
 
 #[derive(Clone, Debug)]
 pub enum Material {

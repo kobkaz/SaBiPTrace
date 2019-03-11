@@ -15,7 +15,7 @@ fn merge_options<T, F: Fn(T, T) -> T>(x: Option<T>, y: Option<T>, merge: F) -> O
 pub struct ObjectHit {
     pub geom: shape::Hit,
     pub material: material::Material,
-    pub emission: Option<rgb::RGB>,
+    pub emission: Option<RGB>,
 }
 
 impl ObjectHit {
@@ -27,11 +27,11 @@ impl ObjectHit {
 pub struct SimpleObject {
     pub shape: shape::Sphere,
     pub material: material::Material,
-    pub emission: Option<rgb::RGB>,
+    pub emission: Option<RGB>,
 }
 
 impl SimpleObject {
-    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
+    pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
         self.shape.test_hit(ray, tnear, tfar).map(|geom| ObjectHit {
             geom,
             material: self.material.clone(),
@@ -49,7 +49,7 @@ impl ObjectList {
         ObjectList { objects: vec![] }
     }
 
-    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, mut tfar: f32) -> Option<ObjectHit> {
+    pub fn test_hit(&self, ray: &Ray, tnear: f32, mut tfar: f32) -> Option<ObjectHit> {
         let mut hit = None::<ObjectHit>;
         for o in self.objects.iter() {
             tfar = hit.as_ref().map_or(tfar, |h| h.geom.dist);
@@ -139,14 +139,14 @@ impl BVH {
         }
     }
 
-    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
+    pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
         self.test_hit_search(0, ray, tnear, tfar)
     }
 
     fn test_hit_search(
         &self,
         node_ix: usize,
-        ray: &ray::Ray,
+        ray: &Ray,
         tnear: f32,
         tfar: f32,
     ) -> Option<ObjectHit> {

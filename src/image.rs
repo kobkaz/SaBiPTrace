@@ -1,4 +1,4 @@
-use crate::rgb::RGB;
+use crate::*;
 pub struct Image {
     w: u32,
     h: u32,

@@ -54,12 +54,7 @@ impl AABB {
         self.maxs - self.mins
     }
 
-    pub fn ray_intersect(
-        &self,
-        ray: &ray::Ray,
-        mut tnear: f32,
-        mut tfar: f32,
-    ) -> Option<(f32, f32)> {
+    pub fn ray_intersect(&self, ray: &Ray, mut tnear: f32, mut tfar: f32) -> Option<(f32, f32)> {
         for i in 0..3 {
             let origin = ray.origin[i];
             let dir = ray.dir[i];
@@ -93,7 +88,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    fn make_hit(&self, ray: &ray::Ray, dist: f32) -> Hit {
+    fn make_hit(&self, ray: &Ray, dist: f32) -> Hit {
         let pos = ray.origin + ray.dir * dist;
         let gnorm = (pos - self.center).normalize();
         let gx_approx = if gnorm[0].abs() < 0.5 {
@@ -110,7 +105,7 @@ impl Sphere {
         }
     }
 
-    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<Hit> {
+    pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<Hit> {
         if tnear > tfar {
             return None;
         }
