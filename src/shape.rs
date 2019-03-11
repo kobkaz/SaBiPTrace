@@ -1,6 +1,5 @@
 use crate::*;
 use rand::prelude::*;
-use rgb::RGB;
 
 #[derive(Clone)]
 pub struct Hit {
@@ -16,6 +15,74 @@ impl Hit {
         let sq_dist = r.norm_squared();
 
         (r.dot(n) * r.dot(&self.gnorm)).abs() / (sq_dist * sq_dist)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AABB {
+    pub mins: P3,
+    pub maxs: P3,
+}
+
+impl AABB {
+    pub fn new(a: &P3, b: &P3) -> Self {
+        let mut mins = *a;
+        let mut maxs = *b;
+        for i in 0..3 {
+            if mins[i] > maxs[i] {
+                std::mem::swap(&mut mins[i], &mut maxs[i])
+            }
+        }
+        AABB { mins, maxs }
+    }
+
+    pub fn merge(&self, another: &Self) -> Self {
+        let mut mins = P3::origin();
+        let mut maxs = P3::origin();
+        for i in 0..3 {
+            mins[i] = self.mins[i].min(another.mins[i]);
+            maxs[i] = self.maxs[i].max(another.maxs[i]);
+        }
+        AABB { mins, maxs }
+    }
+
+    pub fn center(&self) -> P3 {
+        self.mins + self.diag() / 2.0
+    }
+
+    pub fn diag(&self) -> V3 {
+        self.maxs - self.mins
+    }
+
+    pub fn ray_intersect(
+        &self,
+        ray: &ray::Ray,
+        mut tnear: f32,
+        mut tfar: f32,
+    ) -> Option<(f32, f32)> {
+        for i in 0..3 {
+            let origin = ray.origin[i];
+            let dir = ray.dir[i];
+            let clip_near = origin + dir * tnear;
+            let clip_far = origin + dir * tfar;
+            let clip_min = clip_near.min(clip_far);
+            let clip_max = clip_near.max(clip_far);
+            let min = self.mins[i];
+            let max = self.maxs[i];
+            if clip_max < min || max < clip_min {
+                return None;
+            } else if min <= clip_min && clip_max <= max {
+                continue;
+            } else {
+                let clip_min = min.max(clip_min);
+                let clip_max = max.min(clip_max);
+                let t1 = (clip_min - origin) / dir;
+                let t2 = (clip_max - origin) / dir;
+                tnear = t1.min(t2);
+                tfar = t1.max(t2);
+            }
+        }
+        Some((tnear, tfar))
     }
 }
 
@@ -82,12 +149,11 @@ impl Sphere {
             pdf: std::f32::consts::FRAC_1_PI / 4.0 / self.radius / self.radius,
         }
     }
-    /*
-    fn aabb(&self) -> AABB {
+
+    pub fn aabb(&self) -> AABB {
         AABB {
             mins: self.center - V3::new(1.0, 1.0, 1.0) * self.radius,
             maxs: self.center + V3::new(1.0, 1.0, 1.0) * self.radius,
         }
     }
-    */
 }

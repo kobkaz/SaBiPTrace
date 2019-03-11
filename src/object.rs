@@ -30,6 +30,16 @@ pub struct SimpleObject {
     pub emission: Option<rgb::RGB>,
 }
 
+impl SimpleObject {
+    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
+        self.shape.test_hit(ray, tnear, tfar).map(|geom| ObjectHit {
+            geom,
+            material: self.material.clone(),
+            emission: self.emission,
+        })
+    }
+}
+
 pub struct ObjectList {
     pub objects: Vec<SimpleObject>,
 }
@@ -43,25 +53,116 @@ impl ObjectList {
         let mut hit = None::<ObjectHit>;
         for o in self.objects.iter() {
             tfar = hit.as_ref().map_or(tfar, |h| h.geom.dist);
-            let new_hit = o.shape.test_hit(ray, tnear, tfar).map(|h| ObjectHit {
-                geom: h,
-                material: o.material.clone(),
-                emission: o.emission,
-            });
+            let new_hit = o.test_hit(ray, tnear, tfar);
             hit = ObjectHit::nearer_option(hit, new_hit);
         }
         hit
     }
-    /*
-    fn aabb(&self) -> shape::AABB {
-        if self.objects.is_empty() {
-            panic!("empty objects")
-        }
-        let mut bb = self.objects[0].aabb();
-        for o in self.objects.iter() {
-            bb = bb.union(&o.aabb())
-        }
-        bb
+}
+
+#[derive(Clone)]
+enum BVHNode {
+    Leaf {
+        aabb: shape::AABB,
+        object_ix: usize,
+    },
+    Node {
+        aabb: shape::AABB,
+        l_child: usize,
+        r_child: usize,
+    },
+}
+
+pub struct BVH {
+    objects: Vec<SimpleObject>,
+    tree: Vec<BVHNode>,
+}
+
+impl BVH {
+    pub fn new(objects: Vec<SimpleObject>) -> Self {
+        let l = objects.len();
+        let mut ixs: Vec<_> = (0..l).map(|i| (i, objects[i].shape.aabb())).collect();
+        let dummy_leaf = BVHNode::Leaf {
+            aabb: shape::AABB::new(&P3::origin(), &P3::origin()),
+            object_ix: l,
+        };
+        let mut tree = vec![dummy_leaf; 2 * objects.len() - 1];
+        BVH::build(&mut tree, 0, &mut ixs, 0, l);
+        BVH { objects, tree }
     }
-    */
+    pub fn objects(&self) -> &Vec<SimpleObject> {
+        &self.objects
+    }
+
+    fn build(
+        nodes: &mut Vec<BVHNode>,
+        next_node_ix: usize,
+        ixs: &mut Vec<(usize, shape::AABB)>,
+        begin: usize,
+        end: usize,
+    ) -> usize {
+        if end <= begin + 1 {
+            nodes[next_node_ix] = BVHNode::Leaf {
+                aabb: ixs[begin].1.clone(),
+                object_ix: ixs[begin].0,
+            };
+            return next_node_ix + 1;
+        } else {
+            let aabb = {
+                let mut aabb = ixs[begin].1.clone();
+                for i in begin + 1..end {
+                    aabb = aabb.merge(&ixs[i].1)
+                }
+                aabb
+            };
+
+            //sort ixs
+            {
+                let axis = aabb.diag().iamax();
+                let ixs_slice = &mut ixs[begin..end];
+                ixs_slice.sort_by(|(_, ab0), (_, ab1)| {
+                    ab0.center()[axis].partial_cmp(&ab1.center()[axis]).unwrap()
+                });
+            }
+
+            let mid = (end + begin) / 2;
+            let node_ix = next_node_ix;
+            let l_child = node_ix + 1;
+            let r_child = BVH::build(nodes, l_child, ixs, begin, mid);
+            let next_node_ix = BVH::build(nodes, r_child, ixs, mid, end);
+            nodes[node_ix] = BVHNode::Node {
+                aabb,
+                l_child,
+                r_child,
+            };
+            return next_node_ix;
+        }
+    }
+
+    pub fn test_hit(&self, ray: &ray::Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
+        self.test_hit_search(0, ray, tnear, tfar)
+    }
+
+    fn test_hit_search(
+        &self,
+        node_ix: usize,
+        ray: &ray::Ray,
+        tnear: f32,
+        tfar: f32,
+    ) -> Option<ObjectHit> {
+        match self.tree[node_ix] {
+            BVHNode::Leaf { object_ix, .. } => self.objects[object_ix].test_hit(ray, tnear, tfar),
+            BVHNode::Node {
+                ref aabb,
+                l_child,
+                r_child,
+            } => aabb
+                .ray_intersect(ray, tnear, tfar)
+                .and_then(|(tnear, tfar)| {
+                    let hit_l = self.test_hit_search(l_child, ray, tnear, tfar);
+                    let hit_r = self.test_hit_search(r_child, ray, tnear, tfar);
+                    ObjectHit::nearer_option(hit_l, hit_r)
+                }),
+        }
+    }
 }
