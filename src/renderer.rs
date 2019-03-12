@@ -1,40 +1,78 @@
 use crate::camera::Camera;
+use crate::image::Image;
 use crate::scene::Scene;
 use crate::*;
 
 use rand::prelude::*;
+use std::sync::{Arc, Mutex};
 
 pub struct Renderer;
 impl Renderer {
-    pub fn render(&self, scene: &Scene, camera: &Camera, image: &mut image::Image) {
+    pub fn render(
+        &self,
+        scene: Arc<Scene>,
+        camera: &Camera,
+        image: Arc<Mutex<Image>>,
+        nthread: usize,
+    ) {
+        use std::thread;
+        let mut threads = vec![];
+        //let scene = Arc::new(scene);
+        for i in 0..nthread {
+            let image = image.clone();
+            let camera = camera.clone();
+            let scene = scene.clone();
+            let thread = thread::spawn(move || Self::render_thread(&scene, camera, image, i, nthread));
+            threads.push(thread);
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
+    }
+
+    fn render_thread(
+        scene: &Scene,
+        camera: Camera,
+        image: Arc<Mutex<Image>>,
+        thread_num: usize,
+        nthread: usize,
+    ) {
         use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
-        let px_size = camera.width() / image.w() as f32;
-        for xi in 0..image.w() {
-            for yi in 0..image.h() {
+        let (image_w, image_h) = {
+            let image = image.lock().unwrap();
+            (image.w(), image.h())
+        };
+        let px_size = camera.width() / image_w as f32;
+        for xi in 0..image_w {
+            if xi as usize % nthread != thread_num {
+                continue;
+            }
+            for yi in 0..image_h {
                 let mut accum = RGB::all(0.0);
-                let n = 10;
+                let n = 50;
                 for _i in 0..n {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dx = x - image.w() as f32 / 2.0;
+                        let dx = x - image_w as f32 / 2.0;
                         dx * px_size
                     };
                     let dv = {
                         let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dy = image.h() as f32 / 2.0 - y;
+                        let dy = image_h as f32 / 2.0 - y;
                         dy * px_size
                     };
                     let ray = camera.ray_to(du, dv);
                     const USE_NEE: bool = true;
-                    accum = accum + self.radiance(USE_NEE, scene, &ray, &mut rng);
+                    accum = accum + Self::radiance(USE_NEE, scene, &ray, &mut rng);
                 }
+                let mut image = image.lock().unwrap();
                 *image.at_mut(xi, yi) = accum / n as f32;
             }
         }
     }
 
-    fn radiance<R: ?Sized>(&self, enable_nee: bool, scene: &Scene, ray: &Ray, rng: &mut R) -> RGB
+    fn radiance<R: ?Sized>(enable_nee: bool, scene: &Scene, ray: &Ray, rng: &mut R) -> RGB
     where
         R: Rng,
     {

@@ -226,13 +226,17 @@ fn make_plane_scene() -> (Camera, Scene) {
 }
 
 fn main() {
-    let mut image = {
+    use std::sync::{Arc, Mutex};
+    let image = {
         let s = 50;
         image::Image::new(16 * s, 9 * s)
     };
 
-    let renderer = Renderer;
     let (camera, scene) = make_plane_scene();
-    renderer.render(&scene, &camera, &mut image);
-    image.write_exr("output/output.exr");
+    let image = Arc::new(Mutex::new(image));
+    let scene = Arc::new(scene);
+    let cpus = num_cpus::get();
+    let renderer = Renderer;
+    renderer.render(scene, &camera, image.clone(), cpus);
+    image.lock().unwrap().write_exr("output/output.exr");
 }

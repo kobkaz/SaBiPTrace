@@ -3,6 +3,7 @@ pub type P3 = Point3<f32>;
 pub type V3 = Vector3<f32>;
 pub type M3 = Matrix3<f32>;
 
+#[derive(Clone)]
 pub struct LocalCoord {
     l2w: Isometry3<f32>,
     w2l: Isometry3<f32>,

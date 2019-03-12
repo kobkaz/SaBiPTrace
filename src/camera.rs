@@ -1,5 +1,6 @@
 use crate::*;
 
+#[derive(Clone)]
 pub struct Camera {
     lc: LocalCoord,
     width: f32,
