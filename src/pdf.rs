@@ -1,10 +1,66 @@
 use crate::*;
 use rand::prelude::*;
+use std::ops::Div;
 
 #[derive(Clone, Debug)]
 pub struct PdfSample<T> {
     pub value: T,
     pub pdf: f32,
+}
+
+impl<T> PdfSample<T> {
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> PdfSample<U> {
+        PdfSample {
+            value: f(self.value),
+            pdf: self.pdf,
+        }
+    }
+
+    pub fn and_then<U, F: FnOnce(T) -> PdfSample<U>>(self, f: F) -> PdfSample<U> {
+        let mut p = f(self.value);
+        p.pdf *= self.pdf;
+        p
+    }
+}
+
+impl<T> PdfSample<T>
+where
+    T: Div<f32>,
+{
+    pub fn e(self) -> T::Output {
+        self.value / self.pdf
+    }
+}
+
+pub trait SliceRandomPdf: SliceRandom {
+    fn choose_pdf<R: ?Sized>(&self, rng: &mut R) -> Option<PdfSample<&Self::Item>>
+    where
+        R: Rng;
+    fn choose_pdf_mut<R: ?Sized>(&mut self, rng: &mut R) -> Option<PdfSample<&mut Self::Item>>
+    where
+        R: Rng;
+}
+
+impl<T> SliceRandomPdf for [T] {
+    fn choose_pdf<R: ?Sized>(&self, rng: &mut R) -> Option<PdfSample<&Self::Item>>
+    where
+        R: Rng,
+    {
+        self.choose(rng).map(|value| PdfSample {
+            value,
+            pdf: 1.0 / self.len() as f32,
+        })
+    }
+    fn choose_pdf_mut<R: ?Sized>(&mut self, rng: &mut R) -> Option<PdfSample<&mut Self::Item>>
+    where
+        R: Rng,
+    {
+        let len = self.len() as f32;
+        self.choose_mut(rng).map(|value| PdfSample {
+            value,
+            pdf: 1.0 / len,
+        })
+    }
 }
 
 pub struct UniformUnitHemisphere {

@@ -133,7 +133,10 @@ impl Sphere {
         }
     }
 
-    pub fn sample_surface<R: Rng + Sized>(&self, rng: &mut R) -> pdf::PdfSample<(P3, V3)> {
+    pub fn sample_surface<R: ?Sized>(&self, rng: &mut R) -> pdf::PdfSample<(P3, V3)>
+    where
+        R: Rng,
+    {
         use rand::distributions::Uniform;
         let u1 = Uniform::<f32>::new(-1.0, 1.0);
         let upi = Uniform::<f32>::new(-std::f32::consts::PI, std::f32::consts::PI);

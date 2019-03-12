@@ -34,13 +34,10 @@ impl Renderer {
         }
     }
 
-    fn radiance<R: Rng + Sized>(
-        &self,
-        enable_nee: bool,
-        scene: &Scene,
-        ray: &Ray,
-        rng: &mut R,
-    ) -> RGB {
+    fn radiance<R: ?Sized>(&self, enable_nee: bool, scene: &Scene, ray: &Ray, rng: &mut R) -> RGB
+    where
+        R: Rng,
+    {
         let mut depth = 0;
         let mut ray = ray.clone();
         let mut radiance = RGB::all(0.0);
@@ -68,7 +65,6 @@ impl Renderer {
                             let g = hit.geom.g(&light_point, &light_normal);
                             let light_dir = (light_point - hit.geom.pos).normalize();
                             let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
-
                             radiance += throughput * light_emission * bsdf * g / light_sample.pdf;
                         }
                     }

@@ -10,7 +10,10 @@ pub enum Material {
 use Material::*;
 
 impl Material {
-    pub fn sample_win<R: Rng>(&self, _wout: V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB)> {
+    pub fn sample_win<R: ?Sized>(&self, _wout: V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB)>
+    where
+        R: Rng,
+    {
         let Lambert(color) = self;
         let bsdf = *color * (std::f32::consts::FRAC_1_PI / 2.0);
         let next_dir = pdf::UniformUnitHemisphere {

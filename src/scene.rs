@@ -17,17 +17,19 @@ impl Scene {
         Scene { bvh, lights }
     }
 
-    pub fn sample_light<R: Rng>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>> {
-        use pdf::PdfSample;
+    pub fn sample_light<R: ?Sized>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>>
+    where
+        R: Rng,
+    {
+        use pdf::*;
         use rand::seq::SliceRandom;
-        self.lights.choose(rng).map(|ix| {
-            let obj = &self.bvh.objects()[*ix];
-            let PdfSample { value: (p, n), pdf } = obj.shape.sample_surface(rng);
-            let e = obj.emission.unwrap();
-            PdfSample {
-                value: (p, n, e),
-                pdf: pdf / self.lights.len() as f32,
-            }
+
+        self.lights.choose_pdf(rng).map(|ix| {
+            ix.and_then(|ix| {
+                let obj = &self.bvh.objects()[*ix];
+                let e = obj.emission.unwrap();
+                obj.shape.sample_surface(rng).map(|(p, n)| (p, n, e))
+            })
         })
     }
 
