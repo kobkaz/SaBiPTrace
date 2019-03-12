@@ -61,7 +61,7 @@ mod materials {
             dir[0] *= -1.0;
             dir[1] *= -1.0;
             pdf::PdfSample {
-                value: (dir.normalize(), self.0),
+                value: (dir.normalize(), self.0 / dir[2].abs()),
                 pdf: 1.0,
             }
         }
