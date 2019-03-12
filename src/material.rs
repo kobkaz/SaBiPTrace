@@ -81,8 +81,8 @@ pub enum Material {
     Lambert(materials::Lambert),
     Mirror(materials::Mirror),
 }
-use Material::*;
 use materials::MaterialImpl;
+use Material::*;
 
 impl Material {
     pub fn new_lambert(color: RGB) -> Self {

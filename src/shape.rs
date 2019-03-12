@@ -60,9 +60,7 @@ impl AABB {
 
     pub fn ray_intersect(&self, ray: &Ray, mut tnear: f32, mut tfar: f32) -> Option<(f32, f32)> {
         let mut axis = [0, 1, 2];
-        axis.sort_by(|i, j| {
-            ray.dir[*j].abs().partial_cmp(&ray.dir[*i].abs()).unwrap()
-        });
+        axis.sort_by(|i, j| ray.dir[*j].abs().partial_cmp(&ray.dir[*i].abs()).unwrap());
         for i in axis.iter() {
             let i = *i;
             let origin = ray.origin[i];

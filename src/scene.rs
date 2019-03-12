@@ -17,7 +17,10 @@ impl Scene {
         Scene { bvh, lights }
     }
 
-    pub fn sample_light<R: ?Sized>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>> where R: Rng {
+    pub fn sample_light<R: ?Sized>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>>
+    where
+        R: Rng,
+    {
         use pdf::*;
 
         self.lights.choose_pdf(rng).map(|ix| {
