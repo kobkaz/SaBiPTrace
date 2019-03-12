@@ -112,12 +112,12 @@ impl Renderer {
                 let mut accum = RGB::all(0.0);
                 for _i in 0..spp {
                     let du = {
-                        let x = xi as f32 + 0.5; //Uniform::new(0.0, 1.0).sample(&mut rng);
+                        let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
                         let dx = x - image_w as f32 / 2.0;
                         dx * px_size
                     };
                     let dv = {
-                        let y = yi as f32 + 0.5; //Uniform::new(0.0, 1.0).sample(&mut rng);
+                        let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
                         let dy = image_h as f32 / 2.0 - y;
                         dy * px_size
                     };

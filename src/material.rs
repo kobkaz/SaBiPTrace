@@ -25,7 +25,7 @@ pub mod materials {
         {
             let sgn: f32 = if wout[2] > 0.0 { 1.0 } else { -1.0 };
             let bsdf = self.0 * (std::f32::consts::FRAC_1_PI / 2.0);
-            let next_dir = pdf::UniformUnitHemisphere {
+            let next_dir = pdf::CosUnitHemisphere {
                 normal: sgn * V3::z(),
                 xvec: V3::x(),
             };

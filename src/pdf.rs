@@ -88,6 +88,31 @@ impl Distribution<PdfSample<V3>> for UniformUnitHemisphere {
     }
 }
 
+pub struct CosUnitHemisphere {
+    pub normal: V3,
+    pub xvec: V3,
+}
+
+impl Distribution<PdfSample<V3>> for CosUnitHemisphere {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> PdfSample<V3> {
+        use rand::distributions::Uniform;
+        let yvec = self.normal.cross(&self.xvec);
+
+        let u01 = Uniform::<f32>::new(0.0, 1.0);
+        let upi = Uniform::<f32>::new(-std::f32::consts::PI, std::f32::consts::PI);
+        let z = (1.0 - u01.sample(rng)).sqrt();
+        let theta = upi.sample(rng);
+        let r = (1.0 - z * z).sqrt();
+        let x = r * theta.cos();
+        let y = r * theta.sin();
+
+        PdfSample {
+            value: x * self.xvec + y * yvec + z * self.normal,
+            pdf: std::f32::consts::FRAC_1_PI * z,
+        }
+    }
+}
+
 pub struct RandomBool {
     pub chance: f32,
 }
