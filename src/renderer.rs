@@ -6,6 +6,51 @@ use crate::*;
 use rand::prelude::*;
 use std::sync::{Arc, Mutex};
 
+struct Manager {
+    max: usize,
+    next: usize,
+    begin: std::time::Instant,
+}
+
+impl Manager {
+    fn new(max: usize) -> Self {
+        Manager {
+            max,
+            next: 0,
+            begin: std::time::Instant::now(),
+        }
+    }
+
+    fn next(&mut self, id: Option<usize>) -> Option<usize> {
+        if self.next >= self.max {
+            None
+        } else {
+            let n = self.next;
+            if let Some(id) = id {
+                let t = std::time::Instant::now().duration_since(self.begin);
+                let millis = {
+                    let secs = t.as_secs();
+                    secs * 1000 + t.subsec_millis() as u64
+                };
+                let progress = n as f32 / self.max as f32;
+                let eta = ((millis as f32) * (1.0 - progress) / progress) / 1000.0;
+                println!(
+                    "{} took {} / {} ({}) elapsed {} eta {}",
+                    id,
+                    n,
+                    self.max,
+                    progress * 100.0,
+                    millis,
+                    eta as usize
+                );
+            }
+
+            self.next += 1;
+            Some(n)
+        }
+    }
+}
+
 pub struct Renderer;
 impl Renderer {
     pub fn render(
@@ -17,12 +62,17 @@ impl Renderer {
     ) {
         use std::thread;
         let mut threads = vec![];
+        let manager = Manager::new(image.lock().unwrap().w() as usize);
+        let manager = Arc::new(Mutex::new(manager));
         //let scene = Arc::new(scene);
         for i in 0..nthread {
             let image = image.clone();
             let camera = camera.clone();
             let scene = scene.clone();
-            let thread = thread::spawn(move || Self::render_thread(&scene, camera, image, i, nthread));
+            let manager = manager.clone();
+            let thread = thread::spawn(move || {
+                Self::render_thread(&scene, camera, image, i, nthread, manager)
+            });
             threads.push(thread);
         }
         for thread in threads {
@@ -34,8 +84,9 @@ impl Renderer {
         scene: &Scene,
         camera: Camera,
         image: Arc<Mutex<Image>>,
-        thread_num: usize,
+        thread_id: usize,
         nthread: usize,
+        manager: Arc<Mutex<Manager>>,
     ) {
         use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
@@ -44,10 +95,17 @@ impl Renderer {
             (image.w(), image.h())
         };
         let px_size = camera.width() / image_w as f32;
-        for xi in 0..image_w {
-            if xi as usize % nthread != thread_num {
-                continue;
-            }
+
+        let opt_thid = if thread_id == 0 { Some(0) } else { None };
+
+        loop {
+            let xi = {
+                if let Some(xi) = manager.lock().unwrap().next(opt_thid) {
+                    xi as u32
+                } else {
+                    break;
+                }
+            };
             for yi in 0..image_h {
                 let mut accum = RGB::all(0.0);
                 let n = 50;

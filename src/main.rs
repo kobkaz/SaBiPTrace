@@ -232,11 +232,12 @@ fn main() {
         image::Image::new(16 * s, 9 * s)
     };
 
-    let (camera, scene) = make_plane_scene();
+    let (camera, scene) = make_box();
     let image = Arc::new(Mutex::new(image));
     let scene = Arc::new(scene);
     let cpus = num_cpus::get();
     let renderer = Renderer;
+    println!("ncpu {}", cpus);
     renderer.render(scene, &camera, image.clone(), cpus);
     image.lock().unwrap().write_exr("output/output.exr");
 }
