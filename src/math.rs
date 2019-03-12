@@ -34,4 +34,18 @@ impl LocalCoord {
     pub fn w2l(&self) -> &Isometry3<f32> {
         &self.w2l
     }
+
+    pub fn origin(&self) -> P3 {
+        self.l2w * P3::origin()
+    }
+
+    pub fn u(&self) -> V3 {
+        self.l2w * V3::x()
+    }
+    pub fn v(&self) -> V3 {
+        self.l2w * V3::y()
+    }
+    pub fn w(&self) -> V3 {
+        self.l2w * V3::z()
+    }
 }

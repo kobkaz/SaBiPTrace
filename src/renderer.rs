@@ -59,6 +59,7 @@ impl Renderer {
         camera: &Camera,
         image: Arc<Mutex<Image>>,
         nthread: usize,
+        spp: usize,
     ) {
         use std::thread;
         let mut threads = vec![];
@@ -71,7 +72,7 @@ impl Renderer {
             let scene = scene.clone();
             let manager = manager.clone();
             let thread = thread::spawn(move || {
-                Self::render_thread(&scene, camera, image, i, nthread, manager)
+                Self::render_thread(&scene, camera, image, i, nthread, manager, spp)
             });
             threads.push(thread);
         }
@@ -87,6 +88,7 @@ impl Renderer {
         thread_id: usize,
         nthread: usize,
         manager: Arc<Mutex<Manager>>,
+        spp: usize,
     ) {
         use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
@@ -108,15 +110,14 @@ impl Renderer {
             };
             for yi in 0..image_h {
                 let mut accum = RGB::all(0.0);
-                let n = 50;
-                for _i in 0..n {
+                for _i in 0..spp {
                     let du = {
-                        let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
+                        let x = xi as f32 + 0.5; //Uniform::new(0.0, 1.0).sample(&mut rng);
                         let dx = x - image_w as f32 / 2.0;
                         dx * px_size
                     };
                     let dv = {
-                        let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
+                        let y = yi as f32 + 0.5; //Uniform::new(0.0, 1.0).sample(&mut rng);
                         let dy = image_h as f32 / 2.0 - y;
                         dy * px_size
                     };
@@ -125,7 +126,7 @@ impl Renderer {
                     accum = accum + Self::radiance(USE_NEE, scene, &ray, &mut rng);
                 }
                 let mut image = image.lock().unwrap();
-                *image.at_mut(xi, yi) = accum / n as f32;
+                *image.at_mut(xi, yi) = accum / spp as f32;
             }
         }
     }

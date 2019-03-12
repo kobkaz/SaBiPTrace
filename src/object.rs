@@ -25,7 +25,7 @@ impl ObjectHit {
 }
 
 pub struct SimpleObject {
-    pub shape: shape::Sphere,
+    pub shape: shape::Shape,
     pub material: material::Material,
     pub emission: Option<RGB>,
 }
