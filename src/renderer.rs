@@ -44,6 +44,7 @@ impl Renderer {
         let mut throughput = RGB::all(1.0);
         let mut prev_specular = true;
 
+        const DEPTH_MAX: usize = 100;
         loop {
             depth += 1;
             let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX);
@@ -58,7 +59,6 @@ impl Renderer {
                 }
 
                 if enable_nee {
-                    prev_specular = false;
                     if let Some(light_sample) = scene.sample_light(rng) {
                         let (light_point, light_normal, light_emission) = light_sample.value;
                         if scene.visible(light_point, hit.geom.pos) {
@@ -70,8 +70,11 @@ impl Renderer {
                     }
                 }
 
+                if depth >= DEPTH_MAX {
+                    break;
+                }
                 let cont = pdf::RandomBool {
-                    chance: throughput.max(),
+                    chance: (throughput.max() * 0.8).min(1.0),
                 };
                 let cont = cont.sample(rng);
                 if !cont.value {
@@ -79,7 +82,8 @@ impl Renderer {
                 }
                 throughput /= cont.pdf;
 
-                let next = hit.material.sample_win(wout_local, rng);
+                prev_specular = hit.material.is_specular();
+                let next = hit.material.sample_win(&wout_local, rng);
                 let win_local = next.value.0;
                 let bsdf = next.value.1;
                 let cos = win_local[2].abs();

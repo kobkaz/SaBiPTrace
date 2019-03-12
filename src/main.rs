@@ -1,11 +1,11 @@
 use camera::Camera;
+use material::Material;
 use renderer::Renderer;
 use sabiptrace::*;
 use scene::Scene;
 
 #[allow(dead_code)]
 fn make_scene() -> Scene {
-    use material::Material::*;
     use shape::Sphere;
     let mut objects = vec![];
 
@@ -14,7 +14,7 @@ fn make_scene() -> Scene {
             center: P3::new(-50.0, 0.0, 0.0),
             radius: 5.0,
         },
-        material: Lambert(RGB::all(0.0)),
+        material: Material::new_lambert(RGB::all(0.0)),
         emission: Some(RGB::new(0.0, 10.0, 0.0)),
     });
     objects.push(object::SimpleObject {
@@ -22,7 +22,7 @@ fn make_scene() -> Scene {
             center: P3::new(0.0, 0.0, 0.0),
             radius: 20.0,
         },
-        material: Lambert(RGB::all(1.0)),
+        material: Material::new_lambert(RGB::all(1.0)),
         emission: None,
     });
     objects.push(object::SimpleObject {
@@ -30,7 +30,7 @@ fn make_scene() -> Scene {
             center: P3::new(50.0, 0.0, 0.0),
             radius: 5.0,
         },
-        material: Lambert(RGB::all(0.0)),
+        material: Material::new_lambert(RGB::all(0.0)),
         emission: Some(RGB::new(0.0, 0.0, 10.0)),
     });
     /*
@@ -39,7 +39,7 @@ fn make_scene() -> Scene {
             center: P3::new(0.0, 0.0, 0.0),
             radius: 10000.0,
         },
-        material: Lambert(RGB::all(0.0)),
+        material: Material::new_lambert(RGB::all(0.0)),
         emission: Some(RGB::new(0.0, 0.0, 0.05)),
     });
     */
@@ -48,7 +48,6 @@ fn make_scene() -> Scene {
 
 #[allow(dead_code)]
 fn make_box() -> Scene {
-    use material::Material::*;
     use shape::Sphere;
     const R: f32 = 10000.0;
     const L: f32 = 50.0;
@@ -59,7 +58,7 @@ fn make_box() -> Scene {
             center: P3::new(0.0, 0.0, -L - R),
             radius: R,
         },
-        material: Lambert(RGB::new(0.5, 0.5, 0.5)),
+        material: Material::new_lambert(RGB::new(0.5, 0.5, 0.5)),
         emission: None,
     });
 
@@ -68,7 +67,7 @@ fn make_box() -> Scene {
             center: P3::new(L + R, 0.0, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::new(0.0, 0.5, 0.0)),
+        material: Material::new_lambert(RGB::new(0.1, 1.0, 0.1)),
         emission: None,
     });
 
@@ -77,7 +76,7 @@ fn make_box() -> Scene {
             center: P3::new(-L - R, 0.0, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::new(0.0, 0.0, 0.5)),
+        material: Material::new_lambert(RGB::new(0.2, 0.2, 1.0)),
         emission: None,
     });
 
@@ -86,7 +85,7 @@ fn make_box() -> Scene {
             center: P3::new(0.0, L + R, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::new(0.5, 0.5, 0.0)),
+        material: Material::new_lambert(RGB::new(0.8, 0.8, 0.2)),
         emission: None,
     });
 
@@ -95,17 +94,35 @@ fn make_box() -> Scene {
             center: P3::new(0.0, -L - R, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::new(0.5, 0.0, 0.0)),
+        material: Material::new_lambert(RGB::new(1.0, 0.2, 0.2)),
         emission: None,
     });
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(0.0, 0.0, 0.0),
+            center: P3::new(0.0, L, 0.0),
             radius: 10.0,
         },
-        material: Lambert(RGB::all(0.0)),
-        emission: Some(RGB::all(1e2)),
+        material: Material::new_lambert(RGB::all(0.0)),
+        emission: Some(RGB::all(50.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-30.0, -30.0, 10.0),
+            radius: 20.0,
+        },
+        material: Material::new_mirror(RGB::all(1.0)),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(30.0, -30.0, -10.0),
+            radius: 20.0,
+        },
+        material: Material::new_lambert(RGB::all(1.0)),
+        emission: None,
     });
 
     Scene::new(objects)
@@ -113,7 +130,6 @@ fn make_box() -> Scene {
 
 #[allow(dead_code)]
 fn make_plane_scene() -> Scene {
-    use material::Material::*;
     use shape::Sphere;
     const R: f32 = 10000.0;
     const L: f32 = 50.0;
@@ -124,7 +140,7 @@ fn make_plane_scene() -> Scene {
             center: P3::new(0.0, -L - R, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::new(1.0, 0.6, 0.6)),
+        material: Material::new_lambert(RGB::new(1.0, 0.6, 0.6)),
         emission: None,
     });
 
@@ -133,7 +149,7 @@ fn make_plane_scene() -> Scene {
             center: P3::new(0.0, 0.0, 0.0),
             radius: R,
         },
-        material: Lambert(RGB::all(0.0)),
+        material: Material::new_lambert(RGB::all(0.0)),
         emission: Some(RGB::new(0.2, 0.2, 0.8)),
     });
 
