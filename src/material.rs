@@ -2,7 +2,7 @@ use crate::*;
 
 use rand::prelude::*;
 
-mod materials {
+pub mod materials {
     use crate::*;
     use rand::prelude::*;
 
@@ -82,8 +82,10 @@ pub enum Material {
     Mirror(materials::Mirror),
 }
 use materials::MaterialImpl;
-use Material::*;
 
+impl_wrap_from_many! {Material, materials, [Lambert, Mirror]}
+
+use Material::*;
 impl Material {
     pub fn new_lambert(color: RGB) -> Self {
         Lambert(materials::Lambert(color))

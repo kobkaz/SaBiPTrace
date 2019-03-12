@@ -12,3 +12,4 @@ pub mod rgb;
 pub use rgb::*;
 pub mod scene;
 pub mod shape;
+pub mod util;

@@ -200,9 +200,9 @@ fn make_plane_scene() -> (Camera, Scene) {
                 RGB::new(r, g, b)
             };
             if mirror {
-                Material::new_mirror(color)
+                material::materials::Mirror(color).into()
             } else {
-                Material::new_lambert(color)
+                material::materials::Lambert(color).into()
             }
         };
 
