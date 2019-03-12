@@ -59,7 +59,12 @@ impl AABB {
     }
 
     pub fn ray_intersect(&self, ray: &Ray, mut tnear: f32, mut tfar: f32) -> Option<(f32, f32)> {
-        for i in 0..3 {
+        let mut axis = [0, 1, 2];
+        axis.sort_by(|i, j| {
+            ray.dir[*j].abs().partial_cmp(&ray.dir[*i].abs()).unwrap()
+        });
+        for i in axis.iter() {
+            let i = *i;
             let origin = ray.origin[i];
             let dir = ray.dir[i];
             let clip_near = origin + dir * tnear;
@@ -93,8 +98,9 @@ pub struct Sphere {
 
 impl Sphere {
     fn make_hit(&self, ray: &Ray, dist: f32) -> Hit {
-        let pos = ray.origin + ray.dir * dist;
-        let gnorm = (pos - self.center).normalize();
+        let v = (ray.origin + ray.dir * dist - self.center).normalize();
+        let pos = self.center + v * self.radius;
+        let gnorm = v;
         let gx_approx = if gnorm[0].abs() < 0.5 {
             V3::new(1.0, 0.0, 0.0)
         } else {
