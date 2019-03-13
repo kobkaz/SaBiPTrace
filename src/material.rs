@@ -24,7 +24,7 @@ pub mod materials {
             R: Rng,
         {
             let sgn: f32 = if wout[2] > 0.0 { 1.0 } else { -1.0 };
-            let bsdf = self.0 * (std::f32::consts::FRAC_1_PI / 2.0);
+            let bsdf = self.0 * std::f32::consts::FRAC_1_PI;
             let next_dir = pdf::CosUnitHemisphere {
                 normal: sgn * V3::z(),
                 xvec: V3::x(),
@@ -38,7 +38,7 @@ pub mod materials {
 
         fn bsdf(&self, win: &V3, wout: &V3) -> RGB {
             if win[2] * wout[2] > 0.0 {
-                self.0 * (std::f32::consts::FRAC_1_PI / 2.0)
+                self.0 * std::f32::consts::FRAC_1_PI
             } else {
                 RGB::all(0.0)
             }
