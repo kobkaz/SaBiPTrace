@@ -63,6 +63,7 @@ fn make_scene() -> (Camera, Scene) {
 #[allow(dead_code)]
 fn make_box() -> (Camera, Scene) {
     use material::materials::*;
+    use material::Material;
     use shape::shapes::*;
     const R: f32 = 10000.0;
     const L: f32 = 50.0;
@@ -86,7 +87,7 @@ fn make_box() -> (Camera, Scene) {
             P3::new(L, 0.0, L * 10.0),
         ])
         .into(),
-        material: Lambert(RGB::new(0.1, 1.0, 0.1)).into(),
+        material: Lambert(RGB::new(0.0, 1.0, 0.0)).into(),
         emission: None,
     });
 
@@ -129,7 +130,7 @@ fn make_box() -> (Camera, Scene) {
             radius: 10.0,
         }
         .into(),
-        material: Lambert(RGB::all(0.0)).into(),
+        material: Mirror(RGB::all(0.0)).into(),
         emission: Some(RGB::all(50.0)),
     });
 
@@ -149,7 +150,21 @@ fn make_box() -> (Camera, Scene) {
             radius: 20.0,
         }
         .into(),
-        material: Lambert(RGB::all(1.0)).into(),
+        material: Material::mix(
+            0.1,
+            Mirror(RGB::all(1.0)).into(),
+            Lambert(RGB::all(1.0)).into(),
+        ),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(10.0, -40.0, 30.0),
+            radius: 10.0,
+        }
+        .into(),
+        material: Lambert(RGB::new(0.0, 1.0, 1.0)).into(),
         emission: None,
     });
 

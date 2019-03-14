@@ -49,3 +49,12 @@ impl LocalCoord {
         self.l2w * V3::z()
     }
 }
+
+pub fn pick_orthogonal(v: &V3) -> V3 {
+    let like = if v[0].abs() < 0.5 {
+        V3::new(1.0, 0.0, 0.0)
+    } else {
+        V3::new(0.0, 1.0, 0.0)
+    };
+    like.cross(v).normalize()
+}

@@ -7,19 +7,19 @@ pub mod materials {
     use rand::prelude::*;
 
     pub trait MaterialImpl {
-        fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB)>
+        fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB, bool)>
         where
             R: Rng;
         fn bsdf(&self, win: &V3, wout: &V3) -> RGB;
 
-        fn is_specular(&self) -> bool;
+        fn all_specular(&self) -> bool;
     }
 
     #[derive(Clone, Debug)]
     pub struct Lambert(pub RGB);
 
     impl MaterialImpl for Lambert {
-        fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB)>
+        fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB, bool)>
         where
             R: Rng,
         {
@@ -31,7 +31,7 @@ pub mod materials {
             };
             let next_dir = next_dir.sample(rng);
             pdf::PdfSample {
-                value: (next_dir.value, bsdf),
+                value: (next_dir.value, bsdf, false),
                 pdf: next_dir.pdf,
             }
         }
@@ -44,7 +44,7 @@ pub mod materials {
             }
         }
 
-        fn is_specular(&self) -> bool {
+        fn all_specular(&self) -> bool {
             false
         }
     }
@@ -53,7 +53,7 @@ pub mod materials {
     pub struct Mirror(pub RGB);
 
     impl MaterialImpl for Mirror {
-        fn sample_win<R: ?Sized>(&self, wout: &V3, _rng: &mut R) -> pdf::PdfSample<(V3, RGB)>
+        fn sample_win<R: ?Sized>(&self, wout: &V3, _rng: &mut R) -> pdf::PdfSample<(V3, RGB, bool)>
         where
             R: Rng,
         {
@@ -61,7 +61,7 @@ pub mod materials {
             dir[0] *= -1.0;
             dir[1] *= -1.0;
             pdf::PdfSample {
-                value: (dir.normalize(), self.0 / dir[2].abs()),
+                value: (dir.normalize(), self.0 / dir[2].abs(), true),
                 pdf: 1.0,
             }
         }
@@ -70,7 +70,7 @@ pub mod materials {
             RGB::all(0.0)
         }
 
-        fn is_specular(&self) -> bool {
+        fn all_specular(&self) -> bool {
             true
         }
     }
@@ -80,6 +80,7 @@ pub mod materials {
 pub enum Material {
     Lambert(materials::Lambert),
     Mirror(materials::Mirror),
+    Mix(f32, Box<Material>, Box<Material>),
 }
 use materials::MaterialImpl;
 
@@ -95,13 +96,26 @@ impl Material {
         Mirror(materials::Mirror(color))
     }
 
-    pub fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB)>
+    pub fn mix(r: f32, m1: Self, m2: Self) -> Self {
+        Mix(r, Box::new(m1), Box::new(m2))
+    }
+
+    pub fn sample_win<R: ?Sized>(&self, wout: &V3, rng: &mut R) -> pdf::PdfSample<(V3, RGB, bool)>
     where
         R: Rng,
     {
         match self {
             Lambert(m) => m.sample_win(wout, rng),
             Mirror(m) => m.sample_win(wout, rng),
+            Mix(r, m1, m2) => {
+                //TODO: MIS
+                use rand::distributions::Uniform;
+                if Uniform::new(0.0, 1.0).sample(rng) < *r {
+                    m1.sample_win(wout, rng)
+                } else {
+                    m2.sample_win(wout, rng)
+                }
+            }
         }
     }
 
@@ -109,13 +123,15 @@ impl Material {
         match self {
             Lambert(m) => m.bsdf(win, wout),
             Mirror(m) => m.bsdf(win, wout),
+            Mix(r, m1, m2) => m1.bsdf(win, wout) * *r + m2.bsdf(win, wout) * (1.0 - r),
         }
     }
 
-    pub fn is_specular(&self) -> bool {
+    pub fn all_specular(&self) -> bool {
         match self {
-            Lambert(m) => m.is_specular(),
-            Mirror(m) => m.is_specular(),
+            Lambert(m) => m.all_specular(),
+            Mirror(m) => m.all_specular(),
+            Mix(_, m1, m2) => m1.all_specular() && m2.all_specular(),
         }
     }
 }

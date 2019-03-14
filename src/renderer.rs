@@ -179,10 +179,10 @@ impl Renderer {
                 }
                 throughput /= cont.pdf;
 
-                prev_specular = hit.material.is_specular();
                 let next = hit.material.sample_win(&wout_local, rng);
                 let win_local = next.value.0;
                 let bsdf = next.value.1;
+                prev_specular = next.value.2;
                 let cos = win_local[2].abs();
                 throughput *= bsdf * cos;
                 throughput /= next.pdf;

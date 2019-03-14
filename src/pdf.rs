@@ -93,6 +93,15 @@ pub struct CosUnitHemisphere {
     pub xvec: V3,
 }
 
+impl CosUnitHemisphere {
+    pub fn from_normal(n: &V3) -> Self {
+        CosUnitHemisphere {
+            normal: *n,
+            xvec: pick_orthogonal(n),
+        }
+    }
+}
+
 impl Distribution<PdfSample<V3>> for CosUnitHemisphere {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> PdfSample<V3> {
         use rand::distributions::Uniform;

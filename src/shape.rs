@@ -124,12 +124,7 @@ pub mod shapes {
             let v = (ray.origin + ray.dir * dist - self.center).normalize();
             let pos = self.center + v * self.radius;
             let gnorm = v;
-            let gx_approx = if gnorm[0].abs() < 0.5 {
-                V3::new(1.0, 0.0, 0.0)
-            } else {
-                V3::new(0.0, 1.0, 0.0)
-            };
-            let gx = (gx_approx - gx_approx.dot(&gnorm) * gnorm).normalize();
+            let gx = pick_orthogonal(&gnorm);
             Hit {
                 dist,
                 pos,
