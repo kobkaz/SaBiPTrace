@@ -290,12 +290,11 @@ impl Renderer {
                     break;
                 }
 
-                let next = hit.material.sample_win(&wout_local, rng);
+                let next = hit.material.sample_win_cos(&wout_local, rng);
                 let win_local = next.value.0;
-                let bsdf = next.value.1;
+                let bsdf_cos = next.value.1;
                 prev_specular = next.value.2;
-                let cos = win_local[2].abs();
-                throughput *= bsdf * cos;
+                throughput *= bsdf_cos;
                 throughput /= next.pdf;
 
                 let cont = pdf::RandomBool {
@@ -314,8 +313,7 @@ impl Renderer {
                     warn!("> hit.geom {:?}", hit.geom);
                     warn!("> hit.material {:?}", hit.material);
                     warn!("> next {:?}", next);
-                    warn!("> bsdf {:?}", bsdf);
-                    warn!("> cos {:?}", cos);
+                    warn!("> bsdf_cos {:?}", bsdf_cos);
                     warn!("> next.pdf {:?}", next.pdf);
                     warn!("> cont.pdf {:?}", cont.pdf);
                     break;
