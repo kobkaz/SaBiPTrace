@@ -138,8 +138,16 @@ impl Renderer {
                 let progress = completed_samples as f64 / total_samples as f64;
                 let eta = secs * (1.0 - progress) / progress;
                 let spd = completed_samples as f64 / secs;
-                println!("completed {} / {} ({:.2} %) elapsed {:.2} sec Speed {:.2} spp/sec ETA {:.2} sec", 
-                         completed_samples, total_samples, progress * 100.0, secs, spd, eta);
+                let spd_pc = spd / nthread as f64;
+                println!(
+                    "completed {} / {} ({:.2} %) elapsed {:.2} sec  ETA {:.2} sec",
+                    completed_samples,
+                    total_samples,
+                    progress * 100.0,
+                    secs,
+                    eta
+                );
+                println!("Speed {:.2} spp/sec {:.2} spp/sec/core", spd, spd_pc);
                 let film = film.lock().unwrap();
                 film.to_image().write_exr(&format!("output/{}.exr", cycle));
             })
