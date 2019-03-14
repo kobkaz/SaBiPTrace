@@ -33,6 +33,10 @@ impl RGB {
     pub fn max(&self) -> f32 {
         self.r.max(self.g).max(self.b)
     }
+
+    pub fn is_finite(&self) -> bool {
+        self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
+    }
 }
 
 impl<'a> Add<&'a Self> for RGB {

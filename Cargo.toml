@@ -5,7 +5,9 @@ authors = ["Kazuhiro Kobayashi <orihuzakihsayabok@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+env_logger = "0.6"
+log = "0.4"
 nalgebra = "0.17.0"
+num_cpus = "1.10"
 openexr = "0.6.0"
 rand = "0.6"
-num_cpus = "1.10"

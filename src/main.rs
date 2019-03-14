@@ -1,4 +1,5 @@
 use camera::Camera;
+use log::*;
 use material::Material;
 use renderer::Renderer;
 use sabiptrace::*;
@@ -262,6 +263,7 @@ fn make_plane_scene() -> (Camera, Scene) {
 }
 
 fn main() {
+    env_logger::init();
     use std::sync::{Arc, Mutex};
     let film = {
         let s = 50;
@@ -275,7 +277,7 @@ fn main() {
     let ncpu = num_cpus::get();
     let spp = 50;
     let cycle_spp = 10;
-    println!("ncpu {}", ncpu);
+    info!("ncpu = {}", ncpu);
     renderer.render(scene, &camera, film.clone(), ncpu, spp, cycle_spp);
     film.lock()
         .unwrap()

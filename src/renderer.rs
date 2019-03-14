@@ -3,6 +3,7 @@ use crate::image::*;
 use crate::scene::Scene;
 use crate::*;
 
+use log::*;
 use rand::prelude::*;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -219,7 +220,12 @@ impl Renderer {
                     };
                     let ray = camera.ray_to(du, dv);
                     const USE_NEE: bool = true;
-                    accum = accum + Self::radiance(USE_NEE, scene, &ray, &mut rng);
+                    let radiance = Self::radiance(USE_NEE, scene, &ray, &mut rng);
+                    if !radiance.is_finite() {
+                        warn!("radiance is not finite {:?}", radiance);
+                    } else {
+                        accum += radiance;
+                    }
                 }
                 col[yi as usize] = accum;
             }
@@ -264,7 +270,18 @@ impl Renderer {
                             let g = hit.geom.g(&light_point, &light_normal);
                             let light_dir = (light_point - hit.geom.pos).normalize();
                             let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
-                            radiance += throughput * light_emission * bsdf * g / light_sample.pdf;
+                            let nee_contrib =
+                                throughput * light_emission * bsdf * g / light_sample.pdf;
+                            if !nee_contrib.is_finite() {
+                                warn!("nee_radiance is not finite {:?}", nee_contrib);
+                                warn!("> throughput {:?}", throughput);
+                                warn!("> light_emission {:?}", light_emission);
+                                warn!("> bsdf {:?}", bsdf);
+                                warn!("> g {:?}", g);
+                                warn!("> light_sample.pdf {:?}", light_sample.pdf);
+                            } else {
+                                radiance += nee_contrib;
+                            }
                         }
                     }
                 }
@@ -282,13 +299,23 @@ impl Renderer {
                 throughput /= next.pdf;
 
                 let cont = pdf::RandomBool {
-                    chance: (throughput.max() * 0.8).min(1.0),
+                    chance: (throughput.max() * 0.8).min(1.0).max(0.1),
                 };
+
                 let cont = cont.sample(rng);
                 if !cont.value {
                     break;
                 }
                 throughput /= cont.pdf;
+
+                if !throughput.is_finite() {
+                    warn!("throughput is not finite {:?}", throughput);
+                    warn!("> bsdf {:?}", bsdf);
+                    warn!("> cos {:?}", cos);
+                    warn!("> next.pdf {:?}", next.pdf);
+                    warn!("> cont.pdf {:?}", cont.pdf);
+                    break;
+                }
 
                 ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
             } else {
