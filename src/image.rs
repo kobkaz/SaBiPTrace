@@ -41,3 +41,55 @@ impl Image {
         self.h
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Pixel {
+    pub accum: RGB,
+    pub samples: usize,
+}
+
+impl Default for Pixel {
+    fn default() -> Self {
+        Pixel {
+            accum: RGB::all(0.0),
+            samples: 0,
+        }
+    }
+}
+
+pub struct Film {
+    w: u32,
+    h: u32,
+    buf: Vec<Pixel>,
+}
+
+impl Film {
+    pub fn new(w: u32, h: u32) -> Self {
+        let mut buf = Vec::new();
+        buf.resize((w * h) as usize, Default::default());
+        Film { w, h, buf }
+    }
+
+    pub fn to_image(&self) -> Image {
+        Image {
+            w: self.w,
+            h: self.h,
+            buf: self
+                .buf
+                .iter()
+                .map(|p| p.accum / (p.samples as f32))
+                .collect(),
+        }
+    }
+
+    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut Pixel {
+        &mut self.buf[(y * self.w + x) as usize]
+    }
+
+    pub fn w(&self) -> u32 {
+        self.w
+    }
+    pub fn h(&self) -> u32 {
+        self.h
+    }
+}

@@ -263,17 +263,22 @@ fn make_plane_scene() -> (Camera, Scene) {
 
 fn main() {
     use std::sync::{Arc, Mutex};
-    let image = {
+    let film = {
         let s = 50;
-        image::Image::new(16 * s, 9 * s)
+        image::Film::new(16 * s, 9 * s)
     };
 
     let (camera, scene) = make_box();
-    let image = Arc::new(Mutex::new(image));
+    let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
-    let cpus = num_cpus::get();
     let renderer = Renderer;
-    println!("ncpu {}", cpus);
-    renderer.render(scene, &camera, image.clone(), cpus, 50);
-    image.lock().unwrap().write_exr("output/output.exr");
+    let ncpu = num_cpus::get();
+    let spp = 50;
+    let cycle_spp = 10;
+    println!("ncpu {}", ncpu);
+    renderer.render(scene, &camera, film.clone(), ncpu, spp, cycle_spp);
+    film.lock()
+        .unwrap()
+        .to_image()
+        .write_exr("output/output.exr");
 }

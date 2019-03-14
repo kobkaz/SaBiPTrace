@@ -1,52 +1,114 @@
 use crate::camera::Camera;
-use crate::image::Image;
+use crate::image::*;
 use crate::scene::Scene;
 use crate::*;
 
 use rand::prelude::*;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
+#[derive(Debug)]
+struct Task {
+    chunk: usize,
+    amount: usize,
+}
+
+#[derive(Debug)]
+enum ManagerState {
+    Halted,
+    CycleWait(usize, usize, Vec<(usize, Sender<Option<Task>>)>),
+    CycleProgress { cycle: usize, chunk: usize },
+}
+
 struct Manager {
-    max: usize,
-    next: usize,
-    begin: std::time::Instant,
+    chunks: usize,
+    total_amount: usize,
+    max_cycle_amount: usize,
+    state: ManagerState,
+    thread_idle: Vec<bool>,
+    on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
 }
 
 impl Manager {
-    fn new(max: usize) -> Self {
+    pub fn new(
+        chunks: usize,
+        total_amount: usize,
+        max_cycle_amount: usize,
+        nthread: usize,
+        on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
+    ) -> Self {
         Manager {
-            max,
-            next: 0,
-            begin: std::time::Instant::now(),
+            chunks,
+            total_amount,
+            max_cycle_amount,
+            state: ManagerState::CycleProgress { cycle: 0, chunk: 0 },
+            thread_idle: vec![true; nthread],
+            on_cycle_complete,
         }
     }
 
-    fn next(&mut self, id: Option<usize>) -> Option<usize> {
-        if self.next >= self.max {
-            None
-        } else {
-            let n = self.next;
-            if let Some(id) = id {
-                let t = std::time::Instant::now().duration_since(self.begin);
-                let millis = {
-                    let secs = t.as_secs();
-                    secs * 1000 + t.subsec_millis() as u64
-                };
-                let progress = n as f32 / self.max as f32;
-                let eta = ((millis as f32) * (1.0 - progress) / progress) / 1000.0;
-                println!(
-                    "{} took {} / {} ({}) elapsed {} eta {}",
-                    id,
-                    n,
-                    self.max,
-                    progress * 100.0,
-                    millis,
-                    eta as usize
-                );
-            }
+    pub fn next(&mut self, thid: usize) -> Receiver<Option<Task>> {
+        use ManagerState::*;
 
-            self.next += 1;
-            Some(n)
+        let (tx, rx) = mpsc::channel();
+        self.thread_idle[thid] = true;
+        let all_idle = self.all_idle();
+        match self.state {
+            Halted => {
+                let _ = tx.send(None);
+                if all_idle {
+                    (self.on_cycle_complete)(self.total_amount, self.total_amount)
+                }
+            }
+            CycleWait(prev_cycle, amount, ref mut txs) => {
+                let cycle = prev_cycle + 1;
+                txs.push((thid, tx));
+                if all_idle {
+                    (self.on_cycle_complete)(
+                        (self.max_cycle_amount * cycle).min(self.total_amount),
+                        self.total_amount,
+                    );
+                    for (i, (thid, tx)) in txs.into_iter().enumerate() {
+                        let _ = tx.send(Some(Task { chunk: i, amount }));
+                        self.thread_idle[*thid] = false;
+                    }
+                    self.state = CycleProgress {
+                        cycle,
+                        chunk: txs.len(),
+                    };
+                }
+            }
+            CycleProgress { cycle, chunk } => {
+                let amount = self.cycle_amount(cycle);
+                if chunk + 1 == self.chunks {
+                    if (cycle + 1) * self.max_cycle_amount >= self.total_amount {
+                        self.state = Halted;
+                    } else {
+                        self.state = CycleWait(cycle, self.cycle_amount(cycle + 1), vec![]);
+                    }
+                } else {
+                    self.state = CycleProgress {
+                        cycle,
+                        chunk: chunk + 1,
+                    };
+                }
+                let _ = tx.send(Some(Task { chunk, amount }));
+                self.thread_idle[thid] = false;
+            }
+        }
+        rx
+    }
+
+    fn all_idle(&self) -> bool {
+        self.thread_idle.iter().all(|b| *b)
+    }
+
+    fn cycle_amount(&self, cycle: usize) -> usize {
+        let completed = cycle * self.max_cycle_amount;
+        if completed >= self.total_amount {
+            0
+        } else {
+            (self.total_amount - completed).min(self.max_cycle_amount)
         }
     }
 }
@@ -57,23 +119,46 @@ impl Renderer {
         &self,
         scene: Arc<Scene>,
         camera: &Camera,
-        image: Arc<Mutex<Image>>,
+        film: Arc<Mutex<Film>>,
         nthread: usize,
         spp: usize,
+        cycle_spp: usize,
     ) {
         use std::thread;
         let mut threads = vec![];
-        let manager = Manager::new(image.lock().unwrap().w() as usize);
+        let cb = {
+            let start = std::time::Instant::now();
+            let film = film.clone();
+            let mut cycle = 0;
+            Box::new(move |completed_samples, total_samples| {
+                cycle += 1;
+                let elapsed = std::time::Instant::now().duration_since(start);
+                let ms = { elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64 };
+                let secs = (ms as f64) / 1000.0;
+                let progress = completed_samples as f64 / total_samples as f64;
+                let eta = secs * (1.0 - progress) / progress;
+                let spd = completed_samples as f64 / secs;
+                println!("completed {} / {} ({:.2} %) elapsed {:.2} sec Speed {:.2} spp/sec ETA {:.2} sec", 
+                         completed_samples, total_samples, progress * 100.0, secs, spd, eta);
+                let film = film.lock().unwrap();
+                film.to_image().write_exr(&format!("output/{}.exr", cycle));
+            })
+        };
+        let manager = Manager::new(
+            film.lock().unwrap().w() as usize,
+            spp,
+            cycle_spp,
+            nthread,
+            cb,
+        );
         let manager = Arc::new(Mutex::new(manager));
-        //let scene = Arc::new(scene);
         for i in 0..nthread {
-            let image = image.clone();
+            let film = film.clone();
             let camera = camera.clone();
             let scene = scene.clone();
             let manager = manager.clone();
-            let thread = thread::spawn(move || {
-                Self::render_thread(&scene, camera, image, i, nthread, manager, spp)
-            });
+            let thread =
+                thread::spawn(move || Self::render_thread(&scene, camera, film, i, manager));
             threads.push(thread);
         }
         for thread in threads {
@@ -84,49 +169,53 @@ impl Renderer {
     fn render_thread(
         scene: &Scene,
         camera: Camera,
-        image: Arc<Mutex<Image>>,
+        film: Arc<Mutex<Film>>,
         thread_id: usize,
-        nthread: usize,
         manager: Arc<Mutex<Manager>>,
-        spp: usize,
     ) {
         use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
-        let (image_w, image_h) = {
-            let image = image.lock().unwrap();
-            (image.w(), image.h())
+        let (film_w, film_h) = {
+            let film = film.lock().unwrap();
+            (film.w(), film.h())
         };
-        let px_size = camera.width() / image_w as f32;
-
-        let opt_thid = if thread_id == 0 { Some(0) } else { None };
+        let px_size = camera.width() / film_w as f32;
 
         loop {
-            let xi = {
-                if let Some(xi) = manager.lock().unwrap().next(opt_thid) {
-                    xi as u32
-                } else {
+            let rx = manager.lock().unwrap().next(thread_id);
+            let task = match rx.recv() {
+                Ok(Some(task)) => task,
+                Ok(None) => {
                     break;
                 }
+                Err(_) => {
+                    continue;
+                }
             };
-            for yi in 0..image_h {
+
+            let xi = task.chunk as u32;
+            let spp = task.amount;
+            for yi in 0..film_h {
                 let mut accum = RGB::all(0.0);
                 for _i in 0..spp {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dx = x - image_w as f32 / 2.0;
+                        let dx = x - film_w as f32 / 2.0;
                         dx * px_size
                     };
                     let dv = {
                         let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dy = image_h as f32 / 2.0 - y;
+                        let dy = film_h as f32 / 2.0 - y;
                         dy * px_size
                     };
                     let ray = camera.ray_to(du, dv);
                     const USE_NEE: bool = true;
                     accum = accum + Self::radiance(USE_NEE, scene, &ray, &mut rng);
                 }
-                let mut image = image.lock().unwrap();
-                *image.at_mut(xi, yi) = accum / spp as f32;
+                let mut film = film.lock().unwrap();
+                let pixel = film.at_mut(xi, yi);
+                pixel.accum += accum;
+                pixel.samples += spp;
             }
         }
     }
