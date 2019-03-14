@@ -1,7 +1,7 @@
 use crate::*;
 use rand::prelude::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Hit {
     pub dist: f32,
     pub pos: P3,

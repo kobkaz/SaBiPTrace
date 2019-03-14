@@ -310,6 +310,9 @@ impl Renderer {
 
                 if !throughput.is_finite() {
                     warn!("throughput is not finite {:?}", throughput);
+                    warn!("> hit.geom {:?}", hit.geom);
+                    warn!("> hit.material {:?}", hit.material);
+                    warn!("> next {:?}", next);
                     warn!("> bsdf {:?}", bsdf);
                     warn!("> cos {:?}", cos);
                     warn!("> next.pdf {:?}", next.pdf);
