@@ -195,6 +195,7 @@ impl Renderer {
 
             let xi = task.chunk as u32;
             let spp = task.amount;
+            let mut col = vec![RGB::all(0.0); film_h as usize];
             for yi in 0..film_h {
                 let mut accum = RGB::all(0.0);
                 for _i in 0..spp {
@@ -212,9 +213,13 @@ impl Renderer {
                     const USE_NEE: bool = true;
                     accum = accum + Self::radiance(USE_NEE, scene, &ray, &mut rng);
                 }
-                let mut film = film.lock().unwrap();
+                col[yi as usize] = accum;
+            }
+
+            let mut film = film.lock().unwrap();
+            for yi in 0..film_h {
                 let pixel = film.at_mut(xi, yi);
-                pixel.accum += accum;
+                pixel.accum += col[yi as usize];
                 pixel.samples += spp;
             }
         }
