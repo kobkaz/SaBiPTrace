@@ -310,6 +310,7 @@ impl Renderer {
 
                 if !throughput.is_finite() {
                     warn!("throughput is not finite {:?}", throughput);
+                    warn!("> wout_local {:?}", wout_local);
                     warn!("> hit.geom {:?}", hit.geom);
                     warn!("> hit.material {:?}", hit.material);
                     warn!("> next {:?}", next);
