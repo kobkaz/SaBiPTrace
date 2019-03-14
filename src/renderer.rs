@@ -272,6 +272,15 @@ impl Renderer {
                 if depth >= DEPTH_MAX {
                     break;
                 }
+
+                let next = hit.material.sample_win(&wout_local, rng);
+                let win_local = next.value.0;
+                let bsdf = next.value.1;
+                prev_specular = next.value.2;
+                let cos = win_local[2].abs();
+                throughput *= bsdf * cos;
+                throughput /= next.pdf;
+
                 let cont = pdf::RandomBool {
                     chance: (throughput.max() * 0.8).min(1.0),
                 };
@@ -281,13 +290,6 @@ impl Renderer {
                 }
                 throughput /= cont.pdf;
 
-                let next = hit.material.sample_win(&wout_local, rng);
-                let win_local = next.value.0;
-                let bsdf = next.value.1;
-                prev_specular = next.value.2;
-                let cos = win_local[2].abs();
-                throughput *= bsdf * cos;
-                throughput /= next.pdf;
                 ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
             } else {
                 break;
