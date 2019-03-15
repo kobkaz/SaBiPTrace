@@ -16,6 +16,10 @@ impl Ray {
     pub fn new_from_origin(dir: V3) -> Self {
         Self::new(P3::origin(), dir)
     }
+
+    pub fn at(&self, dist: f32) -> P3 {
+        self.origin + dist * self.dir
+    }
 }
 
 impl Mul<Ray> for &Isometry3<f32> {

@@ -51,7 +51,7 @@ impl AABB {
     }
 
     pub fn include(&self, p: &P3) -> Self {
-        self.merge(&AABB::new(p, p))
+        self.merge(&AABB::around(p))
     }
 
     pub fn around(p: &P3) -> Self {
@@ -87,12 +87,21 @@ impl AABB {
             } else if min <= clip_min && clip_max <= max {
                 continue;
             } else {
-                let clip_min = min.max(clip_min);
-                let clip_max = max.min(clip_max);
-                let t1 = (clip_min - origin) / dir;
-                let t2 = (clip_max - origin) / dir;
-                tnear = t1.min(t2);
-                tfar = t1.max(t2);
+                if dir > 0.0 {
+                    if clip_near < min {
+                        tnear = (min - origin) / dir;
+                    }
+                    if max < clip_far {
+                        tfar = (max - origin) / dir;
+                    }
+                } else {
+                    if max < clip_near {
+                        tnear = (max - origin) / dir;
+                    }
+                    if (clip_far < min) {
+                        tfar = (min - origin) / dir;
+                    }
+                }
             }
         }
         Some((tnear, tfar))
@@ -329,15 +338,109 @@ pub mod shapes {
             self.0.area * 2.0
         }
     }
+
+    #[derive(Debug, Clone)]
+    pub struct AARectangular(pub P3, pub P3);
+
+    impl AARectangular {
+        fn center(&self) -> P3 {
+            P3 {
+                coords: (self.0.coords + self.1.coords) / 2.0,
+            }
+        }
+
+        fn normal_at(&self, p: P3) -> V3 {
+            let p0 = p - self.0;
+            let p1 = p - self.1;
+            let i0 = p0.iamin();
+            let i1 = p1.iamin();
+            let i = if p0[i0].abs() < p1[i1].abs() { i0 } else { i1 };
+            let mut n = V3::zeros();
+            n[i] = 1.0;
+            if (self.center() - p).dot(&n) > 0.0 {
+                -n
+            } else {
+                n
+            }
+        }
+    }
+
+    impl ShapeImpl for AARectangular {
+        fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<Hit> {
+            let test_box = AABB::new(&self.0, &self.1);
+            let (near, far) = test_box.ray_intersect(ray, tnear, tfar)?;
+            let dist = if tnear < near {
+                Some(near)
+            } else if far < tfar {
+                Some(far)
+            } else {
+                None
+            }?;
+            let pos = ray.at(dist);
+            let gnorm = self.normal_at(pos);
+            let hit = Hit {
+                dist,
+                pos,
+                gnorm,
+                gx: pick_orthogonal(&gnorm),
+            };
+            Some(hit)
+        }
+
+        fn sample_surface<R: ?Sized>(&self, rng: &mut R) -> pdf::PdfSample<(P3, V3)>
+        where
+            R: Rng,
+        {
+            use crate::pdf::SliceRandomPdf;
+            use rand::distributions::Uniform;
+            [0 as usize, 1, 2, 3, 4, 5]
+                .choose_pdf(rng)
+                .unwrap()
+                .and_then(|s| {
+                    let axis = s / 2;
+                    let side = s % 2;
+                    let (p0, p1) = if side == 0 {
+                        (self.0, self.1)
+                    } else {
+                        (self.1, self.0)
+                    };
+                    let mut dx = V3::zeros();
+                    dx[axis] = p1[axis] - p0[axis];
+                    let mut dy = V3::zeros();
+                    dy[(axis + 1) % 3] = p1[(axis + 1) % 3] - p0[(axis + 1) % 3];
+
+                    let u = Uniform::new(0.0, 1.0).sample(rng);
+                    let v = Uniform::new(0.0, 1.0).sample(rng);
+                    let p = p0 + dx * u + dy * v;
+
+                    pdf::PdfSample {
+                        value: (p, self.normal_at(p)),
+                        pdf: 1.0 / (dx.norm() * dy.norm()),
+                    }
+                })
+        }
+
+        fn aabb(&self) -> AABB {
+            AABB::around(&self.0).include(&self.1)
+        }
+
+        fn area(&self) -> f32 {
+            let dx = (self.0[0] - self.1[0]).abs();
+            let dy = (self.0[1] - self.1[1]).abs();
+            let dz = (self.0[2] - self.1[2]).abs();
+            2.0 * (dx * dy + dy * dz + dz * dx)
+        }
+    }
 }
 
 pub enum Shape {
     Sphere(shapes::Sphere),
     Triangle(shapes::Triangle),
     Parallelogram(shapes::Parallelogram),
+    AARectangular(shapes::AARectangular),
 }
 
-impl_wrap_from_many! {Shape, shapes, [Sphere, Triangle, Parallelogram]}
+impl_wrap_from_many! {Shape, shapes, [Sphere, Triangle, Parallelogram, AARectangular]}
 
 use Shape::*;
 impl Shape {
@@ -346,6 +449,7 @@ impl Shape {
             Sphere(s) => s.test_hit(ray, tnear, tfar),
             Triangle(s) => s.test_hit(ray, tnear, tfar),
             Parallelogram(s) => s.test_hit(ray, tnear, tfar),
+            AARectangular(s) => s.test_hit(ray, tnear, tfar),
         }
     }
 
@@ -357,6 +461,7 @@ impl Shape {
             Sphere(s) => s.sample_surface(rng),
             Triangle(s) => s.sample_surface(rng),
             Parallelogram(s) => s.sample_surface(rng),
+            AARectangular(s) => s.sample_surface(rng),
         }
     }
 
@@ -365,6 +470,7 @@ impl Shape {
             Sphere(s) => s.aabb(),
             Triangle(s) => s.aabb(),
             Parallelogram(s) => s.aabb(),
+            AARectangular(s) => s.aabb(),
         }
     }
 
@@ -373,6 +479,7 @@ impl Shape {
             Sphere(s) => s.area(),
             Triangle(s) => s.area(),
             Parallelogram(s) => s.area(),
+            AARectangular(s) => s.area(),
         }
     }
 }
