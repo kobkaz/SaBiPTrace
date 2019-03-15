@@ -32,3 +32,6 @@ pub use lambert::*;
 
 mod mirror;
 pub use mirror::*;
+
+mod transparent;
+pub use transparent::*;

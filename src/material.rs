@@ -8,11 +8,12 @@ pub mod materials;
 pub enum Material {
     Lambert(materials::Lambert),
     Mirror(materials::Mirror),
+    Transparent(materials::Transparent),
     Mix(f32, Box<Material>, Box<Material>),
 }
 use materials::MaterialImpl;
 
-impl_wrap_from_many! {Material, materials, [Lambert, Mirror]}
+impl_wrap_from_many! {Material, materials, [Lambert, Mirror, Transparent]}
 
 use Material::*;
 impl Material {
@@ -39,6 +40,7 @@ impl Material {
         match self {
             Lambert(m) => m.sample_win(wout_local, rng),
             Mirror(m) => m.sample_win(wout_local, rng),
+            Transparent(m) => m.sample_win(wout_local, rng),
             Mix(r, m1, m2) => {
                 //TODO: MIS
                 use rand::distributions::Uniform;
@@ -62,6 +64,7 @@ impl Material {
         match self {
             Lambert(m) => m.sample_win_cos(wout_local, rng),
             Mirror(m) => m.sample_win_cos(wout_local, rng),
+            Transparent(m) => m.sample_win_cos(wout_local, rng),
             Mix(r, m1, m2) => {
                 //TODO: MIS
                 use rand::distributions::Uniform;
@@ -78,6 +81,7 @@ impl Material {
         match self {
             Lambert(m) => m.bsdf(win_local, wout_local),
             Mirror(m) => m.bsdf(win_local, wout_local),
+            Transparent(m) => m.bsdf(win_local, wout_local),
             Mix(r, m1, m2) => {
                 m1.bsdf(win_local, wout_local) * *r + m2.bsdf(win_local, wout_local) * (1.0 - r)
             }
@@ -88,6 +92,7 @@ impl Material {
         match self {
             Lambert(m) => m.all_specular(),
             Mirror(m) => m.all_specular(),
+            Transparent(m) => m.all_specular(),
             Mix(_, m1, m2) => m1.all_specular() && m2.all_specular(),
         }
     }

@@ -71,8 +71,8 @@ fn make_box() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Triangle::new([
-            P3::new(-2.0 * L, -L, -L),
-            P3::new(2.0 * L, -L, -L),
+            P3::new(-4.0 * L, -L, -L),
+            P3::new(4.0 * L, -L, -L),
             P3::new(0.0, 4.0 * L, -L),
         ])
         .into(),
@@ -82,9 +82,9 @@ fn make_box() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Triangle::new([
-            P3::new(L, 2.0 * L, -L),
-            P3::new(L, -2.0 * L, -L),
-            P3::new(L, 0.0, L * 10.0),
+            P3::new(L + 20.0, 2.0 * L, -L),
+            P3::new(L + 20.0, -2.0 * L, -L),
+            P3::new(L + 20.0, 0.0, L * 10.0),
         ])
         .into(),
         material: Lambert(RGB::new(0.0, 1.0, 0.0)).into(),
@@ -93,9 +93,9 @@ fn make_box() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Triangle::new([
-            P3::new(-L, 2.0 * L, -L),
-            P3::new(-L, -2.0 * L, -L),
-            P3::new(-L, 0.0, L * 10.0),
+            P3::new(-L - 20.0, 2.0 * L, -L),
+            P3::new(-L - 20.0, -2.0 * L, -L),
+            P3::new(-L - 20.0, 0.0, L * 10.0),
         ])
         .into(),
         material: Lambert(RGB::new(0.2, 0.2, 1.0)).into(),
@@ -136,18 +136,23 @@ fn make_box() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(-30.0, -30.0, 10.0),
-            radius: 20.0,
+            center: P3::new(20.0, -35.0, 60.0),
+            radius: 15.0,
         }
         .into(),
-        material: Mirror(RGB::all(1.0)).into(),
+        //material: Mirror(RGB::all(1.0)).into(),
+        material: Transparent {
+            color: RGB::new(1.0, 1.0, 1.0),
+            index: 1.4,
+        }
+        .into(),
         emission: None,
     });
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(30.0, -30.0, -10.0),
-            radius: 20.0,
+            center: P3::new(40.0, -20.0, -10.0),
+            radius: 30.0,
         }
         .into(),
         material: Material::mix(
@@ -160,8 +165,8 @@ fn make_box() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(10.0, -40.0, 30.0),
-            radius: 10.0,
+            center: P3::new(-30.0, -20.0, 60.0),
+            radius: 30.0,
         }
         .into(),
         material: Lambert(RGB::new(0.0, 1.0, 1.0)).into(),
