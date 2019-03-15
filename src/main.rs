@@ -1,6 +1,5 @@
 use camera::Camera;
 use log::*;
-use material::Material;
 use renderer::Renderer;
 use sabiptrace::*;
 use scene::Scene;
