@@ -6,6 +6,25 @@ pub struct Image {
 }
 
 impl Image {
+    pub fn read_exr16(file: &str) -> Option<Self> {
+        use openexr::*;
+        let mut file = std::fs::File::open(file).ok()?;
+        let mut file = InputFile::new(&mut file).ok()?;
+        let (w, h) = file.header().data_dimensions();
+        //let mut buf: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]; (w * h) as usize];
+        let mut buf: Vec<RGB16> = vec![Default::default(); (w * h) as usize];
+        {
+            let mut fb = FrameBufferMut::new(w, h);
+            fb.insert_channels(&[("R", 0.0), ("G", 0.0), ("B", 0.0)], &mut buf);
+            file.read_pixels(&mut fb).ok();
+        }
+        Some(Image {
+            w,
+            h,
+            buf: buf.into_iter().map(Into::into).collect(),
+        })
+    }
+
     pub fn new(w: u32, h: u32) -> Self {
         let mut buf = Vec::new();
         buf.resize((w * h) as usize, RGB::new(0.0, 0.0, 0.0));
@@ -28,6 +47,20 @@ impl Image {
         let mut buffer = FrameBuffer::new(self.w, self.h);
         buffer.insert_channels(&["R", "G", "B"], &self.buf[..]);
         file.write_pixels(&buffer).unwrap();
+    }
+
+    pub fn at_uv(&self, u: f32, v: f32) -> &RGB {
+        let w = self.w as f32;
+        let h = self.h as f32;
+        let x = (w * (u + 1.0) / 2.0) as i32;
+        let x = (x.max(0) as u32).min(self.w - 1);
+        let y = (h * (1.0 - v) / 2.0) as i32;
+        let y = (y.max(0) as u32).min(self.h - 1);
+        self.at(x, y)
+    }
+
+    pub fn at(&self, x: u32, y: u32) -> &RGB {
+        &self.buf[(y * self.w + x) as usize]
     }
 
     pub fn at_mut(&mut self, x: u32, y: u32) -> &mut RGB {

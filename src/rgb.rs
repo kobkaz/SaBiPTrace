@@ -180,3 +180,35 @@ impl DivAssign<f32> for RGB {
         self.b /= rhs;
     }
 }
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RGB16 {
+    pub r: half::f16,
+    pub g: half::f16,
+    pub b: half::f16,
+}
+
+unsafe impl PixelStruct for RGB16 {
+    fn channel_count() -> usize {
+        3
+    }
+    fn channel(i: usize) -> (PixelType, usize) {
+        use openexr::*;
+        [
+            (PixelType::HALF, 0),
+            (PixelType::HALF, 2),
+            (PixelType::HALF, 4),
+        ][i]
+    }
+}
+
+impl From<RGB16> for RGB {
+    fn from(half: RGB16) -> RGB {
+        RGB {
+            r: half.r.into(),
+            g: half.g.into(),
+            b: half.b.into(),
+        }
+    }
+}

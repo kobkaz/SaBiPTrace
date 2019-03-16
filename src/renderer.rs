@@ -321,6 +321,7 @@ impl Renderer {
 
                 ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
             } else {
+                radiance += scene.envmap_dir(&ray.dir) * throughput;
                 break;
             }
         }
