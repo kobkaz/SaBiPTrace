@@ -326,15 +326,26 @@ pub fn make_debug() -> (Camera, Scene) {
     });
 
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(0.0, 0.0, 0.0), radius: 20.0, } .into(),
-        material: Lambert(RGB::new(1.0, 0.0, 0.0)).into(),
+        shape: Sphere { center: P3::new(50.0, 0.0, 0.0), radius: 20.0, } .into(),
+        material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(0.0, 0.0, 0.0), radius: 1000.0, } .into(),
-        material: Lambert(RGB::all(0.0)).into(),
-        emission: Some(RGB::all(0.1)),
+        shape: Sphere { center: P3::new(-50.0, 0.0, 0.0), radius: 20.0, } .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
     });
+    objects.push(object::SimpleObject {
+        shape: Sphere { center: P3::new(0.0, 50.0, 0.0), radius: 20.0, } .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Sphere { center: P3::new(0.0, -50.0, 0.0), radius: 20.0, } .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
     let scene = Scene::new(objects);
 
     let camera = {

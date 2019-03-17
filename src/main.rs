@@ -14,7 +14,7 @@ fn main() {
         image::Film::new(16 * s, 9 * s, v.clone())
     };
 
-    let (camera, scene) = example_scenes::make_parallel();
+    let (camera, scene) = example_scenes::make_debug();
     let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
 
@@ -24,9 +24,9 @@ fn main() {
     };
 
     let render_config = RenderConfig {
-        integrator: Integrator::BidirectionalPathTrace,
+        integrator: Integrator::PathrTraceWithNee,
         nthread: num_cpus::get(),
-        spp: 20000,
+        spp: 10000,
         cycle_spp: 100,
     };
 
