@@ -12,6 +12,7 @@ fn merge_options<T, F: Fn(T, T) -> T>(x: Option<T>, y: Option<T>, merge: F) -> O
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ObjectHit {
     pub geom: shape::Hit,
     pub material: material::Material,

@@ -10,6 +10,7 @@ pub use ray::*;
 pub mod renderer;
 pub mod rgb;
 pub use rgb::*;
+mod manager;
 pub mod scene;
 pub mod shape;
 pub mod util;

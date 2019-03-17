@@ -264,7 +264,76 @@ fn make_plane_scene() -> (Camera, Scene) {
     (camera, scene)
 }
 
+fn make_debug() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 30.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, -30.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
+            radius: 5.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1e2)),
+    });
+
+    //objects.push(object::SimpleObject {
+    //    shape: Sphere { center: P3::new(0.0, 0.0, 0.0), radius: 20.0, } .into(),
+    //    material: Lambert(RGB::new(1.0, 0.0, 0.0)).into(),
+    //    emission: None,
+    //});
+    //objects.push(object::SimpleObject {
+    //    shape: Sphere { center: P3::new(0.0, 0.0, 0.0), radius: 1000.0, } .into(),
+    //    material: Lambert(RGB::all(0.0)).into(),
+    //    emission: Some(RGB::all(0.1)),
+    //});
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
 fn main() {
+    use renderer::Integrator::*;
     env_logger::init();
     use std::sync::{Arc, Mutex};
     let film = {
@@ -272,15 +341,17 @@ fn main() {
         image::Film::new(16 * s, 9 * s)
     };
 
-    let (camera, scene) = make_plane_scene();
+    let (camera, scene) = make_box();
     let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
     let renderer = Renderer;
     let ncpu = num_cpus::get();
-    let spp = 50;
-    let cycle_spp = 10;
+    let spp = 300;
+    let cycle_spp = 30;
+    //let spp = 50;
+    //let cycle_spp = 10;
     info!("ncpu = {}", ncpu);
-    renderer.render(scene, &camera, film.clone(), ncpu, spp, cycle_spp);
+    renderer.render(scene, &camera, film.clone(), PT_NEE, ncpu, spp, cycle_spp);
     film.lock()
         .unwrap()
         .to_image()
