@@ -311,7 +311,7 @@ impl Renderer {
         use rand::distributions::Uniform;
         let mut vs = vec![];
         let (light_point, light_normal, light_emission) = light_sample.value;
-        let mut throughput = light_emission;
+        let mut throughput = light_emission / light_sample.pdf;
         let initial_outdir = pdf::CosUnitHemisphere::from_normal(&light_normal)
             .sample(rng)
             .and_then(|v| {
