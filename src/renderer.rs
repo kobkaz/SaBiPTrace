@@ -357,8 +357,8 @@ impl Renderer {
     where
         R: Rng,
     {
-        const LE_MAX: usize = 6;
-        const LL_MAX: usize = 6;
+        const LE_MAX: usize = 10;
+        const LL_MAX: usize = 10;
         let eye_vs = Self::bdpt_gen_eye(scene, ray, LE_MAX, rng);
         let len_e = eye_vs.len();
 
