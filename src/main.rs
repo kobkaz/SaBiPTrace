@@ -26,7 +26,7 @@ fn main() {
     let render_config = RenderConfig {
         integrator: Integrator::BidirectionalPathTrace,
         nthread: num_cpus::get(),
-        spp: 10000,
+        spp: 1000,
         cycle_spp: 100,
     };
 

@@ -356,8 +356,8 @@ impl Renderer {
     where
         R: Rng,
     {
-        const LE_MAX: usize = 10;
-        const LL_MAX: usize = 10;
+        const LE_MAX: usize = 6;
+        const LL_MAX: usize = 6;
         let eye_vs = Self::bdpt_gen_eye(scene, ray, LE_MAX, rng);
         let len_e = eye_vs.len();
 
@@ -371,6 +371,9 @@ impl Renderer {
         let len_l = light_vs.len();
 
         for len in 2..=len_e + len_l + 4 {
+            if len != 4 {
+                continue;
+            }
             let t_min = len - len.min(LE_MAX + 2);
             let t_max = (len - 2).min(LL_MAX + 2);
             assert!(t_min <= t_max);
@@ -427,10 +430,12 @@ impl Renderer {
                     }
                 };
 
+                radiance_accum.accum((contrib, t));
                 accum_len += contrib * weight;
             }
 
-            radiance_accum.accum((accum_len / weight_sum, len - 2));
+            radiance_accum.accum((accum_len / weight_sum, 9));
+            //radiance_accum.accum((accum_len / weight_sum, len - 2));
         }
     }
 }
