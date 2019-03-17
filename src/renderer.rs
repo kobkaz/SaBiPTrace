@@ -311,7 +311,7 @@ impl Renderer {
         use rand::distributions::Uniform;
         let mut vs = vec![];
         let (light_point, light_normal, light_emission) = light_sample.value;
-        let mut throughput = light_emission / light_sample.pdf;
+        let mut throughput = light_emission;
         let initial_outdir = pdf::CosUnitHemisphere::from_normal(&light_normal)
             .sample(rng)
             .and_then(|v| {
@@ -319,9 +319,10 @@ impl Renderer {
                     .sample(rng)
                     .map(|b| if b { -v } else { v })
             });
+        throughput *= initial_outdir.value.dot(&light_normal).abs();
         throughput /= initial_outdir.pdf;
-
         let mut ray = Ray::new(light_point, initial_outdir.value);
+
         for _depth in 0..max_depth {
             let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX / 2.0);
             if hit.is_none() {
@@ -371,9 +372,9 @@ impl Renderer {
         let len_l = light_vs.len();
 
         for len in 2..=len_e + len_l + 4 {
-            if len != 4 {
-                continue;
-            }
+            //if len != 5 {
+            //    continue;
+            //}
             let t_min = len - len.min(LE_MAX + 2);
             let t_max = (len - 2).min(LL_MAX + 2);
             assert!(t_min <= t_max);
@@ -418,24 +419,23 @@ impl Renderer {
                     let (e_hit, e_throughput, e_wout_local) = v_eye;
                     let (l_hit, l_throughput, l_win_local) = v_light;
                     if !scene.visible(&e_hit.geom.pos, &l_hit.geom.pos) {
-                        RGB::all(0.0)
-                    } else {
-                        let e_to_l = (l_hit.geom.pos - e_hit.geom.pos).normalize();
-                        let e_win_local = e_hit.geom.lc().w2l() * e_to_l;
-                        let l_wout_local = l_hit.geom.lc().w2l() * -e_to_l;
-                        let g = e_hit.geom.g(&l_hit.geom.pos, &l_hit.geom.gnorm);
-                        let l_bsdf = l_hit.material.bsdf(&l_win_local, &l_wout_local);
-                        let e_bsdf = e_hit.material.bsdf(&e_win_local, &e_wout_local);
-                        *l_throughput * l_bsdf * g * e_bsdf * e_throughput
+                        continue;
                     }
+                    let e_to_l = (l_hit.geom.pos - e_hit.geom.pos).normalize();
+                    let e_win_local = e_hit.geom.lc().w2l() * e_to_l;
+                    let l_wout_local = l_hit.geom.lc().w2l() * -e_to_l;
+                    let g = e_hit.geom.g(&l_hit.geom.pos, &l_hit.geom.gnorm);
+                    let l_bsdf = l_hit.material.bsdf(&l_win_local, &l_wout_local);
+                    let e_bsdf = e_hit.material.bsdf(&e_win_local, &e_wout_local);
+                    *l_throughput * l_bsdf * g * e_bsdf * e_throughput / light_sample.pdf
                 };
 
-                radiance_accum.accum((contrib, t));
+                //radiance_accum.accum((contrib, t));
                 accum_len += contrib * weight;
             }
 
-            radiance_accum.accum((accum_len / weight_sum, 9));
-            //radiance_accum.accum((accum_len / weight_sum, len - 2));
+            //radiance_accum.accum((accum_len / weight_sum, 9));
+            radiance_accum.accum((accum_len / weight_sum, len - 2));
         }
     }
 }
