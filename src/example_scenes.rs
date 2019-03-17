@@ -270,7 +270,27 @@ pub fn make_debug() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(0.0, 30.0, 0.0),
+            center: P3::new(0.0, 50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, -50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
             radius: 20.0,
         }
         .into(),
@@ -290,17 +310,7 @@ pub fn make_debug() -> (Camera, Scene) {
 
     objects.push(object::SimpleObject {
         shape: Sphere {
-            center: P3::new(0.0, -30.0, 0.0),
-            radius: 20.0,
-        }
-        .into(),
-        material: Lambert(RGB::all(1.0)).into(),
-        emission: None,
-    });
-
-    objects.push(object::SimpleObject {
-        shape: Sphere {
-            center: P3::new(50.0, 0.0, 0.0),
+            center: P3::new(0.0, 0.0, 0.0),
             radius: 5.0,
         }
         .into(),
