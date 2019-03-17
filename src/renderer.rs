@@ -10,66 +10,92 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Integrator {
-    PT,
-    PT_NEE,
-    BDPT,
+    PathTrace,
+    PathrTraceWithNee,
+    BidirectionalPathTrace,
+}
+
+pub trait Accumulator<T> {
+    fn accum(&mut self, color: T);
+    fn merge(&mut self, another: &Self);
+    fn is_finite(&self) -> bool;
+}
+
+impl Accumulator<(RGB, usize)> for RGB {
+    fn accum(&mut self, color: (RGB, usize)) {
+        *self += color.0
+    }
+    fn merge(&mut self, another: &Self) {
+        *self += *another
+    }
+    fn is_finite(&self) -> bool {
+        self.is_finite()
+    }
+}
+
+impl Accumulator<(RGB, usize)> for Vec<RGB> {
+    fn accum(&mut self, (color, len): (RGB, usize)) {
+        if len < self.len() {
+            self[len] += color;
+        }
+    }
+
+    fn merge(&mut self, another: &Self) {
+        let l = self.len().min(another.len());
+        for i in 0..l {
+            self[i] += another[i]
+        }
+    }
+
+    fn is_finite(&self) -> bool {
+        self.iter().all(RGB::is_finite)
+    }
+}
+
+#[derive(Clone)]
+pub struct FilmConfig<T> {
+    pub film_arc: Arc<Mutex<Film<Pixel<T>>>>,
+    pub accum_init: T,
+}
+
+#[derive(Clone, Copy)]
+pub struct RenderConfig {
+    pub integrator: Integrator,
+    pub nthread: usize,
+    pub spp: usize,
+    pub cycle_spp: usize,
 }
 
 pub struct Renderer;
+
 impl Renderer {
-    pub fn render(
+    pub fn render<T: Send + Clone + Accumulator<(RGB, usize)> + 'static>(
         &self,
         scene: Arc<Scene>,
         camera: &Camera,
-        film: Arc<Mutex<Film>>,
-        integrator: Integrator,
-        nthread: usize,
-        spp: usize,
-        cycle_spp: usize,
+        film_config: FilmConfig<T>,
+        config: RenderConfig,
+        on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
     ) {
         use std::thread;
         let mut threads = vec![];
-        let cb = {
-            let start = std::time::Instant::now();
-            let film = film.clone();
-            let mut cycle = 0;
-            Box::new(move |completed_samples, total_samples| {
-                cycle += 1;
-                let elapsed = std::time::Instant::now().duration_since(start);
-                let ms = { elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64 };
-                let secs = (ms as f64) / 1000.0;
-                let progress = completed_samples as f64 / total_samples as f64;
-                let eta = secs * (1.0 - progress) / progress;
-                let spd = completed_samples as f64 / secs;
-                let spd_pc = spd / nthread as f64;
-                println!(
-                    "completed {} / {} ({:.2} %) elapsed {:.2} sec  ETA {:.2} sec",
-                    completed_samples,
-                    total_samples,
-                    progress * 100.0,
-                    secs,
-                    eta
-                );
-                println!("Speed {:.2} spp/sec {:.2} spp/sec/core", spd, spd_pc);
-                let film = film.lock().unwrap();
-                film.to_image().write_exr(&format!("output/{}.exr", cycle));
-            })
-        };
+        let film = film_config.film_arc;
         let manager = Manager::new(
             film.lock().unwrap().w() as usize,
-            spp,
-            cycle_spp,
-            nthread,
-            cb,
+            config.spp,
+            config.cycle_spp,
+            config.nthread,
+            on_cycle_complete,
         );
         let manager = Arc::new(Mutex::new(manager));
-        for i in 0..nthread {
+        for i in 0..config.nthread {
             let film = film.clone();
             let camera = camera.clone();
             let scene = scene.clone();
             let manager = manager.clone();
+            let accum_init = film_config.accum_init.clone();
             let thread = thread::spawn(move || {
-                Self::render_thread(&scene, camera, film, integrator, i, manager)
+                Self::render_thread(&scene, camera, film, accum_init, config.integrator, i, manager)
             });
             threads.push(thread);
         }
@@ -78,10 +104,11 @@ impl Renderer {
         }
     }
 
-    fn render_thread(
+    fn render_thread<T: Clone + Accumulator<(RGB, usize)>>(
         scene: &Scene,
         camera: Camera,
-        film: Arc<Mutex<Film>>,
+        film: Arc<Mutex<Film<Pixel<T>>>>,
+        accum_init: T,
         integrator: Integrator,
         thread_id: usize,
         manager: Arc<Mutex<Manager>>,
@@ -108,9 +135,9 @@ impl Renderer {
 
             let xi = task.chunk as u32;
             let spp = task.amount;
-            let mut col = vec![RGB::all(0.0); film_h as usize];
+            let mut col = vec![accum_init.clone(); film_h as usize];
             for yi in 0..film_h {
-                let mut accum = RGB::all(0.0);
+                let mut accum = accum_init.clone();
                 for _i in 0..spp {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
@@ -123,41 +150,43 @@ impl Renderer {
                         dy * px_size
                     };
                     let ray = camera.ray_to(du, dv);
-                    let radiance = match integrator {
-                        Integrator::PT => Self::radiance_pt(false, scene, &ray, &mut rng),
-                        Integrator::PT_NEE => Self::radiance_pt(true, scene, &ray, &mut rng),
-                        Integrator::BDPT => Self::radiance_bdpt(scene, &ray, &mut rng),
+                    match integrator {
+                        Integrator::PathTrace => 
+                            Self::radiance_pt(false, scene, &ray, &mut accum, &mut rng),
+                        Integrator::PathrTraceWithNee => 
+                            Self::radiance_pt(true, scene, &ray, &mut accum, &mut rng),
+                        Integrator::BidirectionalPathTrace => 
+                            Self::radiance_bdpt(scene, &ray, &mut accum, &mut rng),
                     };
 
-                    if !radiance.is_finite() {
-                        warn!("radiance is not finite {:?}", radiance);
-                    } else {
-                        accum += radiance;
-                    }
                 }
-                col[yi as usize] = accum;
+                if accum.is_finite() {
+                    col[yi as usize] = accum;
+                } else {
+                    warn!("radiance is not finite");
+                }
             }
 
             let mut film = film.lock().unwrap();
             for yi in 0..film_h {
                 let pixel = film.at_mut(xi, yi);
-                pixel.accum += col[yi as usize];
+                pixel.accum.merge(&col[yi as usize]);
                 pixel.samples += spp;
             }
         }
     }
 
-    fn radiance_pt<R: ?Sized>(enable_nee: bool, scene: &Scene, ray: &Ray, rng: &mut R) -> RGB
+    fn radiance_pt<R: ?Sized>(enable_nee: bool, scene: &Scene, ray: &Ray, 
+                              radiance_accum: &mut impl Accumulator<(RGB, usize)>, rng: &mut R)
     where
         R: Rng,
     {
         let mut ray = ray.clone();
-        let mut radiance = RGB::all(0.0);
         let mut throughput = RGB::all(1.0);
         let mut prev_specular = true;
 
         const DEPTH_MAX: usize = 100;
-        for _depth in 0..DEPTH_MAX {
+        for depth in 0..DEPTH_MAX {
             let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX / 2.0);
             if let Some(hit) = hit {
                 let hit_lc = hit.geom.lc();
@@ -165,7 +194,7 @@ impl Renderer {
 
                 if prev_specular || !enable_nee {
                     if let Some(emission) = hit.emission {
-                        radiance += throughput * emission;
+                        radiance_accum.accum((throughput * emission, depth));
                     }
                 }
 
@@ -186,7 +215,7 @@ impl Renderer {
                                 warn!("> g {:?}", g);
                                 warn!("> light_sample.pdf {:?}", light_sample.pdf);
                             } else {
-                                radiance += nee_contrib;
+                                radiance_accum.accum((nee_contrib, depth + 1));
                             }
                         }
                     }
@@ -223,11 +252,10 @@ impl Renderer {
 
                 ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
             } else {
-                radiance += scene.envmap_dir(&ray.dir) * throughput;
+                radiance_accum.accum((scene.envmap_dir(&ray.dir) * throughput, depth));
                 break;
             }
         }
-        return radiance;
     }
 
     fn bdpt_gen_eye<R: ?Sized>(
@@ -323,31 +351,30 @@ impl Renderer {
         vs
     }
 
-    fn radiance_bdpt<R: ?Sized>(scene: &Scene, ray: &Ray, rng: &mut R) -> RGB
+    fn radiance_bdpt<R: ?Sized>(
+        scene: &Scene, ray: &Ray, radiance_accum: &mut impl Accumulator<(RGB, usize)>, rng: &mut R)
     where
         R: Rng,
     {
-        const LE_MAX: usize = 6;
-        const LL_MAX: usize = 6;
+        const LE_MAX: usize = 10;
+        const LL_MAX: usize = 10;
         let eye_vs = Self::bdpt_gen_eye(scene, ray, LE_MAX, rng);
         let len_e = eye_vs.len();
 
         let light_sample = scene.sample_light(rng);
         if light_sample.is_none() {
-            return RGB::all(0.0);
+            return;
         }
         let light_sample = light_sample.unwrap();
 
         let light_vs = Self::bdpt_gen_light(scene, &light_sample, LL_MAX, rng);
         let len_l = light_vs.len();
 
-        let mut radiance = RGB::all(0.0);
-
         for len in 2..=len_e + len_l + 4 {
             let t_min = len - len.min(LE_MAX + 2);
             let t_max = (len - 2).min(LL_MAX + 2);
             assert!(t_min <= t_max);
-            let mut accum = RGB::all(0.0);
+            let mut accum_len = RGB::all(0.0);
             let mut weight_sum = 0.0;
             for t in t_min..=t_max {
                 let weight = 1.0;
@@ -400,42 +427,10 @@ impl Renderer {
                     }
                 };
 
-                accum += contrib * weight;
+                accum_len += contrib * weight;
             }
 
-            radiance += accum / weight_sum;
+            radiance_accum.accum((accum_len / weight_sum, len - 2));
         }
-
-        /*
-        for len in 0 ..= 10 {
-            let mut weight_sum = 0.0;
-            let mut accum = RGB::all(0.0);
-
-            if 1 <= len && len <= eye_vs.len() {
-                let weight = 1.0;
-                weight_sum += weight;
-                let (hit, throughput, wout_local) = &eye_vs[len - 1];
-                let hit_lc = hit.geom.lc();
-                let (light_point, light_normal, light_emission) = light_sample.value;
-                if scene.visible(light_point, hit.geom.pos) {
-                    let g = hit.geom.g(&light_point, &light_normal);
-                    let light_dir = (light_point - hit.geom.pos).normalize();
-                    let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
-                    accum += *throughput * light_emission * bsdf * g / light_sample.pdf * weight;
-                }
-
-            }
-
-            if  len < eye_vs.len() {
-                let weight = 1.0;
-                weight_sum += weight;
-            }
-
-            if weight_sum > 0.0 {
-                radiance += accum / weight_sum;
-            }
-        }
-        */
-        radiance
     }
 }

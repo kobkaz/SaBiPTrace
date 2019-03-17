@@ -39,6 +39,12 @@ impl RGB {
     }
 }
 
+impl Default for RGB {
+    fn default() -> Self {
+        RGB::all(0.0)
+    }
+}
+
 impl<'a> Add<&'a Self> for RGB {
     type Output = Self;
     fn add(self, rhs: &'a Self) -> Self {

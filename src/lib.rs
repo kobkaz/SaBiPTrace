@@ -14,3 +14,4 @@ mod manager;
 pub mod scene;
 pub mod shape;
 pub mod util;
+pub mod example_scenes;
