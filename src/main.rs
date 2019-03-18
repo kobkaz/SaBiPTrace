@@ -3,7 +3,6 @@ use example_scenes;
 use sabiptrace::*;
 
 fn main() {
-    use image::RGBPixel;
     use renderer::*;
     env_logger::init();
     use std::sync::{Arc, Mutex};

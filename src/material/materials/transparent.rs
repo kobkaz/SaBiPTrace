@@ -60,7 +60,6 @@ impl MaterialImpl for Transparent {
                     -wout_local[1] * index_ratio,
                     if cos_out > 0.0 { -cos_in } else { cos_in },
                 );
-                let norm = (win_local + wout_local).norm();
                 pdf::PdfSample {
                     value: (win_local.normalize(), self.color * c_trans, true),
                     pdf: c_trans,

@@ -1,5 +1,5 @@
 use crate::*;
-use rand::prelude::*;
+use rand::prelude::Rng;
 
 #[derive(Debug, Clone)]
 pub struct Hit {
@@ -98,7 +98,7 @@ impl AABB {
                     if max < clip_near {
                         tnear = (max - origin) / dir;
                     }
-                    if (clip_far < min) {
+                    if clip_far < min {
                         tfar = (min - origin) / dir;
                     }
                 }

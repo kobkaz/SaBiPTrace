@@ -322,7 +322,6 @@ impl Renderer {
     where
         R: Rng,
     {
-        use rand::distributions::Uniform;
         let mut vs = vec![];
         let (light_point, light_normal, light_emission) = light_sample.value;
         let mut throughput = light_emission;

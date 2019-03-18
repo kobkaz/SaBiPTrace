@@ -1,6 +1,4 @@
 use crate::material::*;
-use crate::*;
-use rand::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct Lambert(pub RGB);
