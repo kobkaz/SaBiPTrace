@@ -61,6 +61,7 @@ impl Manager {
             } => {
                 waiters.push((thid, tx));
                 if all_idle {
+                    //FIXME: care self.chunks <= waiters.len();
                     if let Some(amount) = (self.on_cycle_complete)(next_cycle, self.total_amount) {
                         self.total_amount += amount;
                         for (i, (thid, tx)) in waiters.iter().enumerate() {
