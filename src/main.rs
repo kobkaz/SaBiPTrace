@@ -21,6 +21,7 @@ fn main() -> Result<(), std::io::Error> {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
+            eprintln!("{}", opts.short_usage(&args[0]));
             eprintln!("{}", opts.usage("sabiptrace"));
             panic!("invalid options");
         }
@@ -30,7 +31,7 @@ fn main() -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    let outdir = format!("output/{}", matches.opt_str("o").unwrap());
+    let outdir = matches.opt_str("o").unwrap();
     std::fs::create_dir_all(&outdir)?;
     let time_limit = matches
         .opt_str("t")
