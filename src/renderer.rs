@@ -62,8 +62,6 @@ pub struct FilmConfig<T> {
 pub struct RenderConfig {
     pub integrator: Integrator,
     pub nthread: usize,
-    pub spp: usize,
-    pub cycle_spp: usize,
 }
 
 pub struct Renderer;
@@ -75,15 +73,13 @@ impl Renderer {
         camera: &Camera,
         film_config: FilmConfig<T>,
         config: RenderConfig,
-        on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
+        on_cycle_complete: Box<dyn FnMut(usize, usize) -> Option<usize> + Send>,
     ) {
         use std::thread;
         let mut threads = vec![];
         let film = film_config.film_arc;
         let manager = Manager::new(
             film.lock().unwrap().w() as usize,
-            config.spp,
-            config.cycle_spp,
             config.nthread,
             on_cycle_complete,
         );

@@ -1,5 +1,5 @@
-//use log::*;
 use example_scenes;
+use log::*;
 use sabiptrace::*;
 
 fn main() {
@@ -25,39 +25,54 @@ fn main() {
     let render_config = RenderConfig {
         integrator: Integrator::PathrTraceWithNee,
         nthread: num_cpus::get(),
-        spp: 750,
-        cycle_spp: 50,
     };
 
-    let cb = {
+    const MAX_SPP: usize = 2000;
+    const MAX_TIME_SEC: f64 = 20.0;
+    const REPORT_FREQ: f64 = 5.0;
+    let sched = {
         let start = std::time::Instant::now();
-        //let film = film.clone();
-        let mut cycle = 0;
-        Box::new(move |completed_samples, total_samples| {
-            cycle += 1;
-            let elapsed = std::time::Instant::now().duration_since(start);
-            let ms = { elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64 };
-            let secs = (ms as f64) / 1000.0;
-            let progress = completed_samples as f64 / total_samples as f64;
-            let eta = secs * (1.0 - progress) / progress;
-            let spd = completed_samples as f64 / secs;
-            let spd_pc = spd / render_config.nthread as f64;
-            println!(
-                "completed {} / {} ({:.2} %) elapsed {:.2} sec  ETA {:.2} sec",
-                completed_samples,
-                total_samples,
-                progress * 100.0,
-                secs,
-                eta
-            );
-            println!("Speed {:.2} spp/sec {:.2} spp/sec/core", spd, spd_pc);
-            //let film = film.lock().unwrap();
-            //film.to_image(RGBPixel::average).write_exr(&format!("output/{}.exr", cycle));
+        let _film = film.clone();
+        Box::new(move |next_cycle: usize, completed_samples: usize| {
+            if next_cycle <= 0 {
+                Some(1)
+            } else {
+                let elapsed = std::time::Instant::now().duration_since(start);
+                let ms = { elapsed.as_secs() * 1000 + elapsed.subsec_millis() as u64 };
+                let secs = (ms as f64) / 1000.0;
+                let progress = completed_samples as f64 / MAX_SPP as f64;
+                let eta = secs * (1.0 - progress) / progress;
+                let spd = completed_samples as f64 / secs;
+                let spd_pc = spd / render_config.nthread as f64;
+                info!(
+                    "completed {} / {} ({:.2} %) elapsed {:.2} sec ETA {:.2} sec ({:?} for limit)",
+                    completed_samples,
+                    MAX_SPP,
+                    progress * 100.0,
+                    secs,
+                    eta,
+                    MAX_TIME_SEC - secs
+                );
+                info!("Speed {:.2} spp/sec {:.2} spp/sec/core", spd, spd_pc);
+                //let film = film.lock().unwrap();
+                //film.to_image(RGBPixel::average).write_exr(&format!("output/{}.exr", cycle));
+                if completed_samples >= MAX_SPP {
+                    None
+                } else if secs >= MAX_TIME_SEC {
+                    info!("stopping due to time limit");
+                    None
+                } else {
+                    let rest = MAX_SPP - completed_samples;
+                    let next_cycle_time = REPORT_FREQ.min(MAX_TIME_SEC - secs);
+                    let next_report: usize = (next_cycle_time * spd) as usize;
+                    Some(rest.min(next_report).max(1))
+                }
+            }
         })
     };
 
     let renderer = Renderer;
-    renderer.render(scene, &camera, film_config, render_config, cb);
+    renderer.render(scene, &camera, film_config, render_config, sched);
     let film = film.lock().unwrap();
     for i in 0..v.len() {
         film.to_image(|v| v.accum[i] / v.samples as f32)

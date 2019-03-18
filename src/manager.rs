@@ -8,34 +8,42 @@ pub struct Task {
 #[derive(Debug)]
 enum ManagerState {
     Halted,
-    CycleWait(usize, usize, Vec<(usize, Sender<Option<Task>>)>),
-    CycleProgress { cycle: usize, chunk: usize },
+    CycleProgress {
+        cycle: usize,
+        amount: usize,
+        chunk: usize,
+    },
+    CycleWait {
+        next_cycle: usize,
+        waiters: Vec<(usize, Sender<Option<Task>>)>,
+    },
 }
 
 pub struct Manager {
     chunks: usize,
-    total_amount: usize,
-    max_cycle_amount: usize,
     state: ManagerState,
     thread_idle: Vec<bool>,
-    on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
+    on_cycle_complete: Box<dyn FnMut(usize, usize) -> Option<usize> + Send>,
+    total_amount: usize,
 }
 
 impl Manager {
     pub fn new(
         chunks: usize,
-        total_amount: usize,
-        max_cycle_amount: usize,
         nthread: usize,
-        on_cycle_complete: Box<dyn FnMut(usize, usize) + Send>,
+        on_cycle_complete: Box<dyn FnMut(usize, usize) -> Option<usize> + Send>,
     ) -> Self {
         Manager {
             chunks,
-            total_amount,
-            max_cycle_amount,
-            state: ManagerState::CycleProgress { cycle: 0, chunk: 0 },
+            //total_amount,
+            //max_cycle_amount,
+            state: ManagerState::CycleWait {
+                next_cycle: 0,
+                waiters: vec![],
+            },
             thread_idle: vec![true; nthread],
             on_cycle_complete,
+            total_amount: 0,
         }
     }
 
@@ -46,46 +54,54 @@ impl Manager {
         self.thread_idle[thid] = true;
         let all_idle = self.all_idle();
         match self.state {
-            Halted => {
-                let _ = tx.send(None);
+            Halted => Self::send_none(&tx),
+            CycleWait {
+                next_cycle,
+                ref mut waiters,
+            } => {
+                waiters.push((thid, tx));
                 if all_idle {
-                    (self.on_cycle_complete)(self.total_amount, self.total_amount)
-                }
-            }
-            CycleWait(prev_cycle, amount, ref mut txs) => {
-                let cycle = prev_cycle + 1;
-                txs.push((thid, tx));
-                if all_idle {
-                    (self.on_cycle_complete)(
-                        (self.max_cycle_amount * cycle).min(self.total_amount),
-                        self.total_amount,
-                    );
-                    for (i, (thid, tx)) in txs.into_iter().enumerate() {
-                        let _ = tx.send(Some(Task { chunk: i, amount }));
-                        self.thread_idle[*thid] = false;
-                    }
-                    self.state = CycleProgress {
-                        cycle,
-                        chunk: txs.len(),
-                    };
-                }
-            }
-            CycleProgress { cycle, chunk } => {
-                let amount = self.cycle_amount(cycle);
-                if chunk + 1 == self.chunks {
-                    if (cycle + 1) * self.max_cycle_amount >= self.total_amount {
-                        self.state = Halted;
+                    if let Some(amount) = (self.on_cycle_complete)(next_cycle, self.total_amount) {
+                        self.total_amount += amount;
+                        for (i, (thid, tx)) in waiters.iter().enumerate() {
+                            Self::send_task(
+                                &mut self.thread_idle,
+                                *thid,
+                                tx,
+                                Task { chunk: i, amount },
+                            );
+                        }
+                        self.state = CycleProgress {
+                            cycle: next_cycle,
+                            amount,
+                            chunk: waiters.len(),
+                        };
                     } else {
-                        self.state = CycleWait(cycle, self.cycle_amount(cycle + 1), vec![]);
+                        for (_, (_, tx)) in waiters.into_iter().enumerate() {
+                            Self::send_none(tx);
+                        }
+                        self.state = Halted;
                     }
+                }
+            }
+            CycleProgress {
+                cycle,
+                amount,
+                chunk,
+            } => {
+                if chunk + 1 == self.chunks {
+                    self.state = CycleWait {
+                        next_cycle: cycle + 1,
+                        waiters: vec![],
+                    };
                 } else {
                     self.state = CycleProgress {
                         cycle,
+                        amount,
                         chunk: chunk + 1,
                     };
                 }
-                let _ = tx.send(Some(Task { chunk, amount }));
-                self.thread_idle[thid] = false;
+                Self::send_task(&mut self.thread_idle, thid, &tx, Task { chunk, amount });
             }
         }
         rx
@@ -95,12 +111,12 @@ impl Manager {
         self.thread_idle.iter().all(|b| *b)
     }
 
-    fn cycle_amount(&self, cycle: usize) -> usize {
-        let completed = cycle * self.max_cycle_amount;
-        if completed >= self.total_amount {
-            0
-        } else {
-            (self.total_amount - completed).min(self.max_cycle_amount)
-        }
+    fn send_none(tx: &Sender<Option<Task>>) {
+        let _ = tx.send(None);
+    }
+
+    fn send_task(thread_idle: &mut Vec<bool>, thid: usize, tx: &Sender<Option<Task>>, task: Task) {
+        thread_idle[thid] = false;
+        let _ = tx.send(Some(task));
     }
 }
