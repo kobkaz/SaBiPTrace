@@ -76,10 +76,10 @@ impl Scene {
         self.bvh.test_hit(ray, tnear, tfar)
     }
 
-    pub fn visible(&self, x: P3, y: P3) -> bool {
+    pub fn visible(&self, x: &P3, y: &P3) -> bool {
         let r = y - x;
         let dist = r.norm();
-        let ray = Ray::new(x, r / dist);
+        let ray = Ray::new(*x, r / dist);
         self.test_hit(&ray, 1e-3, dist - 1e-3).is_none()
     }
 }

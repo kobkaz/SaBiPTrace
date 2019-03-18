@@ -442,14 +442,13 @@ pub enum Shape {
 
 impl_wrap_from_many! {Shape, shapes, [Sphere, Triangle, Parallelogram, AARectangular]}
 
-use Shape::*;
 impl Shape {
     pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<Hit> {
         match self {
-            Sphere(s) => s.test_hit(ray, tnear, tfar),
-            Triangle(s) => s.test_hit(ray, tnear, tfar),
-            Parallelogram(s) => s.test_hit(ray, tnear, tfar),
-            AARectangular(s) => s.test_hit(ray, tnear, tfar),
+            Shape::Sphere(s) => s.test_hit(ray, tnear, tfar),
+            Shape::Triangle(s) => s.test_hit(ray, tnear, tfar),
+            Shape::Parallelogram(s) => s.test_hit(ray, tnear, tfar),
+            Shape::AARectangular(s) => s.test_hit(ray, tnear, tfar),
         }
     }
 
@@ -458,28 +457,28 @@ impl Shape {
         R: Rng,
     {
         match self {
-            Sphere(s) => s.sample_surface(rng),
-            Triangle(s) => s.sample_surface(rng),
-            Parallelogram(s) => s.sample_surface(rng),
-            AARectangular(s) => s.sample_surface(rng),
+            Shape::Sphere(s) => s.sample_surface(rng),
+            Shape::Triangle(s) => s.sample_surface(rng),
+            Shape::Parallelogram(s) => s.sample_surface(rng),
+            Shape::AARectangular(s) => s.sample_surface(rng),
         }
     }
 
     pub fn aabb(&self) -> AABB {
         match self {
-            Sphere(s) => s.aabb(),
-            Triangle(s) => s.aabb(),
-            Parallelogram(s) => s.aabb(),
-            AARectangular(s) => s.aabb(),
+            Shape::Sphere(s) => s.aabb(),
+            Shape::Triangle(s) => s.aabb(),
+            Shape::Parallelogram(s) => s.aabb(),
+            Shape::AARectangular(s) => s.aabb(),
         }
     }
 
     pub fn area(&self) -> f32 {
         match self {
-            Sphere(s) => s.area(),
-            Triangle(s) => s.area(),
-            Parallelogram(s) => s.area(),
-            AARectangular(s) => s.area(),
+            Shape::Sphere(s) => s.area(),
+            Shape::Triangle(s) => s.area(),
+            Shape::Parallelogram(s) => s.area(),
+            Shape::AARectangular(s) => s.area(),
         }
     }
 }

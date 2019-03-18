@@ -76,46 +76,57 @@ impl Image {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Pixel {
-    pub accum: RGB,
+pub struct Pixel<T> {
+    pub accum: T,
     pub samples: usize,
 }
 
-impl Default for Pixel {
+impl<T: Default> Default for Pixel<T> {
     fn default() -> Self {
         Pixel {
-            accum: RGB::all(0.0),
+            accum: Default::default(),
             samples: 0,
         }
     }
 }
 
-pub struct Film {
-    w: u32,
-    h: u32,
-    buf: Vec<Pixel>,
+impl Pixel<RGB> {
+    pub fn average(&self) -> RGB {
+        self.accum / (self.samples as f32)
+    }
 }
 
-impl Film {
-    pub fn new(w: u32, h: u32) -> Self {
+pub type RGBPixel = Pixel<RGB>;
+
+#[derive(Clone)]
+pub struct Film<T> {
+    w: u32,
+    h: u32,
+    buf: Vec<T>,
+}
+
+impl<T:Clone> Film<Pixel<T>> {
+    pub fn new(w: u32, h: u32, v: T) -> Self {
         let mut buf = Vec::new();
-        buf.resize((w * h) as usize, Default::default());
+        buf.resize((w * h) as usize, Pixel { accum: v, samples: 0 });
         Film { w, h, buf }
     }
+}
 
-    pub fn to_image(&self) -> Image {
+impl<T> Film<T> {
+    pub fn to_image(&self, f: impl FnMut(&T) -> RGB) -> Image {
         Image {
             w: self.w,
             h: self.h,
             buf: self
                 .buf
                 .iter()
-                .map(|p| p.accum / (p.samples as f32))
+                .map(f)
                 .collect(),
         }
     }
 
-    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut Pixel {
+    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut T {
         &mut self.buf[(y * self.w + x) as usize]
     }
 
