@@ -105,10 +105,16 @@ pub struct Film<T> {
     buf: Vec<T>,
 }
 
-impl<T:Clone> Film<Pixel<T>> {
+impl<T: Clone> Film<Pixel<T>> {
     pub fn new(w: u32, h: u32, v: T) -> Self {
         let mut buf = Vec::new();
-        buf.resize((w * h) as usize, Pixel { accum: v, samples: 0 });
+        buf.resize(
+            (w * h) as usize,
+            Pixel {
+                accum: v,
+                samples: 0,
+            },
+        );
         Film { w, h, buf }
     }
 }
@@ -118,11 +124,7 @@ impl<T> Film<T> {
         Image {
             w: self.w,
             h: self.h,
-            buf: self
-                .buf
-                .iter()
-                .map(f)
-                .collect(),
+            buf: self.buf.iter().map(f).collect(),
         }
     }
 

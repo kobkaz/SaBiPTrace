@@ -95,7 +95,15 @@ impl Renderer {
             let manager = manager.clone();
             let accum_init = film_config.accum_init.clone();
             let thread = thread::spawn(move || {
-                Self::render_thread(&scene, camera, film, accum_init, config.integrator, i, manager)
+                Self::render_thread(
+                    &scene,
+                    camera,
+                    film,
+                    accum_init,
+                    config.integrator,
+                    i,
+                    manager,
+                )
             });
             threads.push(thread);
         }
@@ -151,14 +159,16 @@ impl Renderer {
                     };
                     let ray = camera.ray_to(du, dv);
                     match integrator {
-                        Integrator::PathTrace => 
-                            Self::radiance_pt(false, scene, &ray, &mut accum, &mut rng),
-                        Integrator::PathrTraceWithNee => 
-                            Self::radiance_pt(true, scene, &ray, &mut accum, &mut rng),
-                        Integrator::BidirectionalPathTrace => 
-                            Self::radiance_bdpt(scene, &ray, &mut accum, &mut rng),
+                        Integrator::PathTrace => {
+                            Self::radiance_pt(false, scene, &ray, &mut accum, &mut rng)
+                        }
+                        Integrator::PathrTraceWithNee => {
+                            Self::radiance_pt(true, scene, &ray, &mut accum, &mut rng)
+                        }
+                        Integrator::BidirectionalPathTrace => {
+                            Self::radiance_bdpt(scene, &ray, &mut accum, &mut rng)
+                        }
                     };
-
                 }
                 if accum.is_finite() {
                     col[yi as usize] = accum;
@@ -176,9 +186,13 @@ impl Renderer {
         }
     }
 
-    fn radiance_pt<R: ?Sized>(enable_nee: bool, scene: &Scene, ray: &Ray, 
-                              radiance_accum: &mut impl Accumulator<(RGB, usize)>, rng: &mut R)
-    where
+    fn radiance_pt<R: ?Sized>(
+        enable_nee: bool,
+        scene: &Scene,
+        ray: &Ray,
+        radiance_accum: &mut impl Accumulator<(RGB, usize)>,
+        rng: &mut R,
+    ) where
         R: Rng,
     {
         let mut ray = ray.clone();
@@ -353,8 +367,11 @@ impl Renderer {
     }
 
     fn radiance_bdpt<R: ?Sized>(
-        scene: &Scene, ray: &Ray, radiance_accum: &mut impl Accumulator<(RGB, usize)>, rng: &mut R)
-    where
+        scene: &Scene,
+        ray: &Ray,
+        radiance_accum: &mut impl Accumulator<(RGB, usize)>,
+        rng: &mut R,
+    ) where
         R: Rng,
     {
         const LE_MAX: usize = 10;

@@ -1,10 +1,10 @@
 //use log::*;
-use sabiptrace::*;
 use example_scenes;
+use sabiptrace::*;
 
 fn main() {
-    use renderer::*;
     use image::RGBPixel;
+    use renderer::*;
     env_logger::init();
     use std::sync::{Arc, Mutex};
 
@@ -50,7 +50,7 @@ fn main() {
                 progress * 100.0,
                 secs,
                 eta
-                );
+            );
             println!("Speed {:.2} spp/sec {:.2} spp/sec/core", spd, spd_pc);
             //let film = film.lock().unwrap();
             //film.to_image(RGBPixel::average).write_exr(&format!("output/{}.exr", cycle));

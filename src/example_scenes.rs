@@ -50,8 +50,6 @@ pub fn make_scene() -> (Camera, Scene) {
     (camera, scene)
 }
 
-
-
 pub fn make_box() -> (Camera, Scene) {
     use material::materials::*;
     use material::Material;
@@ -273,7 +271,8 @@ pub fn make_parallel() -> (Camera, Scene) {
             P3::new(-50.0, 1e3, -1e3),
             P3::new(-50.0, -1e3, -1e3),
             P3::new(-50.0, 0.0, 1e3),
-        ]).into(),
+        ])
+        .into(),
         material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
@@ -282,7 +281,8 @@ pub fn make_parallel() -> (Camera, Scene) {
             P3::new(50.0, 1e3, -1e3),
             P3::new(50.0, -1e3, -1e3),
             P3::new(50.0, 0.0, 1e3),
-        ]).into(),
+        ])
+        .into(),
         material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
@@ -326,22 +326,38 @@ pub fn make_debug() -> (Camera, Scene) {
     });
 
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(50.0, 0.0, 0.0), radius: 20.0, } .into(),
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
         material: Mirror(RGB::all(1.0)).into(),
         emission: None,
     });
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(-50.0, 0.0, 0.0), radius: 20.0, } .into(),
+        shape: Sphere {
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
         material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(0.0, 50.0, 0.0), radius: 20.0, } .into(),
+        shape: Sphere {
+            center: P3::new(0.0, 50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
         material: Mirror(RGB::all(1.0)).into(),
         emission: None,
     });
     objects.push(object::SimpleObject {
-        shape: Sphere { center: P3::new(0.0, -50.0, 0.0), radius: 20.0, } .into(),
+        shape: Sphere {
+            center: P3::new(0.0, -50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
         material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
@@ -358,4 +374,3 @@ pub fn make_debug() -> (Camera, Scene) {
 
     (camera, scene)
 }
-
