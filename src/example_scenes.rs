@@ -416,9 +416,9 @@ pub fn make_black_shell() -> (Camera, Scene) {
                 center: P3::new(i as f32, 0.0, -2e3),
                 radius: 0.1,
             }
-                   .into(),
-                   material: Lambert(RGB::all(0.0)).into(),
-                   emission: Some(RGB::all(1000.0)),
+            .into(),
+            material: Lambert(RGB::all(0.0)).into(),
+            emission: Some(RGB::all(1000.0)),
         });
     }
 
