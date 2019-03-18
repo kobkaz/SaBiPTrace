@@ -374,3 +374,63 @@ pub fn make_debug() -> (Camera, Scene) {
 
     (camera, scene)
 }
+
+pub fn make_black_shell() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 1000.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 45.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
+            radius: 45.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1.0)),
+    });
+
+    for i in 0..100 {
+        objects.push(object::SimpleObject {
+            shape: Sphere {
+                center: P3::new(i as f32, 0.0, -2e3),
+                radius: 0.1,
+            }
+                   .into(),
+                   material: Lambert(RGB::all(0.0)).into(),
+                   emission: Some(RGB::all(1000.0)),
+        });
+    }
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}

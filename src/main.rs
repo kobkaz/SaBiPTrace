@@ -13,7 +13,7 @@ fn main() {
         image::Film::new(16 * s, 9 * s, v.clone())
     };
 
-    let (camera, scene) = example_scenes::make_box();
+    let (camera, scene) = example_scenes::make_black_shell();
     let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
 
@@ -27,8 +27,8 @@ fn main() {
         nthread: num_cpus::get(),
     };
 
-    const MAX_SPP: usize = 2000;
-    const MAX_TIME_SEC: f64 = 20.0;
+    const MAX_SPP: usize = 500;
+    const MAX_TIME_SEC: f64 = 100.0;
     const REPORT_FREQ: f64 = 5.0;
     let sched = {
         let start = std::time::Instant::now();
