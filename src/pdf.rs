@@ -23,6 +23,10 @@ impl<T> PdfSample<T> {
     }
 }
 
+pub trait Pdf<T>: Distribution<PdfSample<T>> {
+    fn pdf(&self, v: &T) -> f32;
+}
+
 impl<T> PdfSample<T>
 where
     T: Div<f32>,
@@ -88,6 +92,12 @@ impl Distribution<PdfSample<V3>> for UniformUnitHemisphere {
     }
 }
 
+impl Pdf<V3> for UniformUnitHemisphere {
+    fn pdf(&self, _v: &V3) -> f32 {
+        std::f32::consts::FRAC_1_PI / 2.0
+    }
+}
+
 pub struct CosUnitHemisphere {
     pub normal: V3,
     pub xvec: V3,
@@ -119,6 +129,13 @@ impl Distribution<PdfSample<V3>> for CosUnitHemisphere {
             value: x * self.xvec + y * yvec + z * self.normal,
             pdf: std::f32::consts::FRAC_1_PI * z,
         }
+    }
+}
+
+impl Pdf<V3> for CosUnitHemisphere {
+    fn pdf(&self, v: &V3) -> f32 {
+        let z = v.dot(&self.normal).abs();
+        std::f32::consts::FRAC_1_PI * z
     }
 }
 

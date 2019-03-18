@@ -77,6 +77,15 @@ impl Material {
         }
     }
 
+    pub fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32 {
+        match self {
+            Lambert(m) => m.sample_win_pdf(wout_local, win_local),
+            Mirror(m) => m.sample_win_pdf(wout_local, win_local),
+            Transparent(m) => m.sample_win_pdf(wout_local, win_local),
+            Mix(_r, _m1, _m2) => unimplemented!(),
+        }
+    }
+
     pub fn bsdf(&self, win_local: &V3, wout_local: &V3) -> RGB {
         match self {
             Lambert(m) => m.bsdf(win_local, wout_local),

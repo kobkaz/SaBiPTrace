@@ -17,6 +17,7 @@ pub struct ObjectHit {
     pub geom: shape::Hit,
     pub material: material::Material,
     pub emission: Option<RGB>,
+    pub obj_ix: usize,
 }
 
 impl ObjectHit {
@@ -32,11 +33,12 @@ pub struct SimpleObject {
 }
 
 impl SimpleObject {
-    pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<ObjectHit> {
+    pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32, self_ix: usize) -> Option<ObjectHit> {
         self.shape.test_hit(ray, tnear, tfar).map(|geom| ObjectHit {
             geom,
             material: self.material.clone(),
             emission: self.emission,
+            obj_ix: self_ix,
         })
     }
 }
@@ -52,9 +54,9 @@ impl ObjectList {
 
     pub fn test_hit(&self, ray: &Ray, tnear: f32, mut tfar: f32) -> Option<ObjectHit> {
         let mut hit = None::<ObjectHit>;
-        for o in self.objects.iter() {
+        for (i, o) in self.objects.iter().enumerate() {
             tfar = hit.as_ref().map_or(tfar, |h| h.geom.dist);
-            let new_hit = o.test_hit(ray, tnear, tfar);
+            let new_hit = o.test_hit(ray, tnear, tfar, i);
             hit = ObjectHit::nearer_option(hit, new_hit);
         }
         hit
@@ -152,7 +154,9 @@ impl BVH {
         tfar: f32,
     ) -> Option<ObjectHit> {
         match self.tree[node_ix] {
-            BVHNode::Leaf { object_ix, .. } => self.objects[object_ix].test_hit(ray, tnear, tfar),
+            BVHNode::Leaf { object_ix, .. } => {
+                self.objects[object_ix].test_hit(ray, tnear, tfar, object_ix)
+            }
             BVHNode::Node {
                 ref aabb,
                 l_child,

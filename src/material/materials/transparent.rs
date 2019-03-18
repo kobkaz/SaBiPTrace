@@ -74,6 +74,32 @@ impl MaterialImpl for Transparent {
         }
     }
 
+    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32 {
+        let cos_out = wout_local[2];
+        let sin_out = (1.0 - cos_out * cos_out).sqrt();
+        let (index_in, index_out) = if cos_out > 0.0 {
+            //println!("Light Out trace In");
+            (self.index, 1.0)
+        } else {
+            //println!("Light In trace Out");
+            (1.0, self.index)
+        };
+        let index_ratio = index_out / index_in;
+        let sin_in = sin_out * index_ratio;
+
+        if sin_in < 1.0 {
+            let cos_in = (1.0 - sin_in * sin_in).sqrt();
+            let c_ref = Self::fresnel_reflection(index_in, cos_in.abs(), index_out, cos_out.abs());
+            if win_local[2] * wout_local[2] > 0.0 {
+                c_ref
+            } else {
+                1.0 - c_ref
+            }
+        } else {
+            1.0
+        }
+    }
+
     fn bsdf(&self, _win: &V3, _wout: &V3) -> RGB {
         RGB::all(0.0)
     }

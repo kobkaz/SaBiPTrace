@@ -86,9 +86,8 @@ impl Scene {
     }
 
     pub fn sample_light_pdf(&self, pos: &P3, obj_ix: usize) -> f32 {
-        //let obj = &self.bvh.objects()[*ix];
-        //obj.shape.sample_surface_pdf(pos) / self.lights.size() as f32
-        unimplemented!();
+        let obj = &self.bvh.objects()[obj_ix];
+        obj.shape.sample_surface_pdf(pos) / self.lights.len() as f32
     }
 
     pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<object::ObjectHit> {

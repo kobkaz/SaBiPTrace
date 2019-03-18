@@ -113,6 +113,7 @@ trait ShapeImpl {
     fn sample_surface<R: ?Sized>(&self, rng: &mut R) -> pdf::PdfSample<(P3, V3)>
     where
         R: Rng;
+    fn sample_surface_pdf(&self, pos: &P3) -> f32;
     fn aabb(&self) -> AABB;
     fn area(&self) -> f32;
 }
@@ -185,6 +186,10 @@ pub mod shapes {
                 value: (self.center + self.radius * n, n),
                 pdf: std::f32::consts::FRAC_1_PI / 4.0 / self.radius / self.radius,
             }
+        }
+
+        fn sample_surface_pdf(&self, _pos: &P3) -> f32 {
+            1.0 / self.area()
         }
 
         fn aabb(&self) -> AABB {
@@ -285,6 +290,10 @@ pub mod shapes {
             }
         }
 
+        fn sample_surface_pdf(&self, _pos: &P3) -> f32 {
+            1.0 / self.area()
+        }
+
         fn aabb(&self) -> AABB {
             self.aabb.clone()
         }
@@ -332,6 +341,10 @@ pub mod shapes {
 
         fn aabb(&self) -> AABB {
             self.0.aabb().merge(&self.1.aabb())
+        }
+
+        fn sample_surface_pdf(&self, _pos: &P3) -> f32 {
+            1.0 / self.area()
         }
 
         fn area(&self) -> f32 {
@@ -420,6 +433,10 @@ pub mod shapes {
                 })
         }
 
+        fn sample_surface_pdf(&self, _pos: &P3) -> f32 {
+            unimplemented!()
+        }
+
         fn aabb(&self) -> AABB {
             AABB::around(&self.0).include(&self.1)
         }
@@ -461,6 +478,15 @@ impl Shape {
             Shape::Triangle(s) => s.sample_surface(rng),
             Shape::Parallelogram(s) => s.sample_surface(rng),
             Shape::AARectangular(s) => s.sample_surface(rng),
+        }
+    }
+
+    pub fn sample_surface_pdf(&self, pos: &P3) -> f32 {
+        match self {
+            Shape::Sphere(s) => s.sample_surface_pdf(pos),
+            Shape::Triangle(s) => s.sample_surface_pdf(pos),
+            Shape::Parallelogram(s) => s.sample_surface_pdf(pos),
+            Shape::AARectangular(s) => s.sample_surface_pdf(pos),
         }
     }
 
