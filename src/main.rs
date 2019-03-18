@@ -64,7 +64,7 @@ fn main() -> Result<(), std::io::Error> {
         image::Film::new(16 * s, 9 * s, v.clone())
     };
 
-    let (camera, scene) = example_scenes::make_black_shell();
+    let (camera, scene) = example_scenes::make_fiveballs_lambert();
     let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
 
