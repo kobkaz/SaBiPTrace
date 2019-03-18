@@ -210,10 +210,15 @@ impl Renderer {
 
                 if enable_nee {
                     if let Some(light_sample) = scene.sample_light(rng) {
-                        let (light_point, light_normal, light_emission) = light_sample.value;
-                        if scene.visible(&light_point, &hit.geom.pos) {
-                            let g = hit.geom.g(&light_point, &light_normal);
-                            let light_dir = (light_point - hit.geom.pos).normalize();
+                        let scene::LightSampleResult {
+                            pos: light_pos,
+                            normal: light_normal,
+                            emission: light_emission,
+                            ..
+                        } = light_sample.value;
+                        if scene.visible(&light_pos, &hit.geom.pos) {
+                            let g = hit.geom.g(&light_pos, &light_normal);
+                            let light_dir = (light_pos - hit.geom.pos).normalize();
                             let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
                             let nee_contrib =
                                 throughput * light_emission * bsdf * g / light_sample.pdf;
@@ -311,7 +316,7 @@ impl Renderer {
 
     fn bdpt_gen_light<R: ?Sized>(
         scene: &Scene,
-        light_sample: &pdf::PdfSample<(P3, V3, RGB)>,
+        light_sample: &pdf::PdfSample<scene::LightSampleResult>,
         max_depth: usize,
         rng: &mut R,
     ) -> Vec<(object::ObjectHit, RGB, V3)>
@@ -319,7 +324,12 @@ impl Renderer {
         R: Rng,
     {
         let mut vs = vec![];
-        let (light_point, light_normal, light_emission) = light_sample.value;
+        let scene::LightSampleResult {
+            pos: light_pos,
+            normal: light_normal,
+            emission: light_emission,
+            ..
+        } = light_sample.value;
         let mut throughput = light_emission;
         let initial_outdir = pdf::CosUnitHemisphere::from_normal(&light_normal)
             .sample(rng)
@@ -330,7 +340,7 @@ impl Renderer {
             });
         throughput *= initial_outdir.value.dot(&light_normal).abs();
         throughput /= initial_outdir.pdf;
-        let mut ray = Ray::new(light_point, initial_outdir.value);
+        let mut ray = Ray::new(light_pos, initial_outdir.value);
 
         for _depth in 0..max_depth {
             let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX / 2.0);
@@ -413,12 +423,17 @@ impl Renderer {
                 } else if t == 1 {
                     let (hit, throughput, wout_local) = v_eye;
                     let hit_lc = hit.geom.lc();
-                    let (light_point, light_normal, light_emission) = light_sample.value;
-                    if !scene.visible(&light_point, &hit.geom.pos) {
+                    let scene::LightSampleResult {
+                        pos: light_pos,
+                        normal: light_normal,
+                        emission: light_emission,
+                        ..
+                    } = light_sample.value;
+                    if !scene.visible(&light_pos, &hit.geom.pos) {
                         RGB::all(0.0)
                     } else {
-                        let g = hit.geom.g(&light_point, &light_normal);
-                        let light_dir = (light_point - hit.geom.pos).normalize();
+                        let g = hit.geom.g(&light_pos, &light_normal);
+                        let light_dir = (light_pos - hit.geom.pos).normalize();
                         let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
                         light_emission * throughput * bsdf * g / light_sample.pdf
                     }
