@@ -29,6 +29,10 @@ impl MaterialImpl for Mirror {
         }
     }
 
+    fn sample_win_pdf(&self, _wout_local: &V3, _win_local: &V3) -> f32 {
+        1.0
+    }
+
     fn bsdf(&self, _win: &V3, _wout: &V3) -> RGB {
         RGB::all(0.0)
     }

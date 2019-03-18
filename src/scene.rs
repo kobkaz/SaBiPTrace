@@ -13,6 +13,12 @@ pub struct Scene {
     envmap: Option<EnvMap>,
 }
 
+pub struct LightSampleResult {
+    pub pos: P3,
+    pub normal: V3,
+    pub emission: RGB,
+    pub obj_ix: usize,
+}
 impl Scene {
     pub fn new(objects: Vec<object::SimpleObject>) -> Self {
         let bvh = object::BVH::new(objects);
@@ -57,19 +63,31 @@ impl Scene {
         }
     }
 
-    pub fn sample_light<R: ?Sized>(&self, rng: &mut R) -> Option<pdf::PdfSample<(P3, V3, RGB)>>
+    pub fn sample_light<R: ?Sized>(&self, rng: &mut R) -> Option<pdf::PdfSample<LightSampleResult>>
     where
         R: Rng,
     {
         use pdf::*;
 
         self.lights.choose_pdf(rng).map(|ix| {
-            ix.and_then(|ix| {
-                let obj = &self.bvh.objects()[*ix];
-                let e = obj.emission.unwrap();
-                obj.shape.sample_surface(rng).map(|(p, n)| (p, n, e))
+            ix.and_then(|obj_ix| {
+                let obj = &self.bvh.objects()[*obj_ix];
+                let emission = obj.emission.unwrap();
+                obj.shape
+                    .sample_surface(rng)
+                    .map(|(pos, normal)| LightSampleResult {
+                        pos,
+                        normal,
+                        emission,
+                        obj_ix: *obj_ix,
+                    })
             })
         })
+    }
+
+    pub fn sample_light_pdf(&self, pos: &P3, obj_ix: usize) -> f32 {
+        let obj = &self.bvh.objects()[obj_ix];
+        obj.shape.sample_surface_pdf(pos) / self.lights.len() as f32
     }
 
     pub fn test_hit(&self, ray: &Ray, tnear: f32, tfar: f32) -> Option<object::ObjectHit> {
