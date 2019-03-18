@@ -189,8 +189,8 @@ pub mod shapes {
 
         fn aabb(&self) -> AABB {
             AABB {
-                mins: self.center - V3::new(1.0, 1.0, 1.0) * self.radius,
-                maxs: self.center + V3::new(1.0, 1.0, 1.0) * self.radius,
+                mins: self.center - V3::new(1.0, 1.0, 1.0) * self.radius - V3::new(0.1, 0.1, 0.1),
+                maxs: self.center + V3::new(1.0, 1.0, 1.0) * self.radius + V3::new(0.1, 0.1, 0.1),
             }
         }
 
