@@ -54,7 +54,7 @@ impl Accumulator<(RGB, usize)> for Vec<RGB> {
 
 #[derive(Clone)]
 pub struct FilmConfig<T> {
-    pub film_arc: Arc<Mutex<Film<Pixel<T>>>>,
+    pub film_arc: FilmArc<T>,
     pub accum_init: T,
 }
 
@@ -78,11 +78,7 @@ impl Renderer {
         use std::thread;
         let mut threads = vec![];
         let film = film_config.film_arc;
-        let manager = Manager::new(
-            film.lock().unwrap().w() as usize,
-            config.nthread,
-            on_cycle_complete,
-        );
+        let manager = Manager::new(film.w() as usize, config.nthread, on_cycle_complete);
         let manager = Arc::new(Mutex::new(manager));
         for i in 0..config.nthread {
             let film = film.clone();
@@ -111,7 +107,7 @@ impl Renderer {
     fn render_thread<T: Clone + Accumulator<(RGB, usize)>>(
         scene: &Scene,
         camera: Camera,
-        film: Arc<Mutex<Film<Pixel<T>>>>,
+        film: FilmArc<T>,
         accum_init: T,
         integrator: Integrator,
         thread_id: usize,
@@ -119,11 +115,7 @@ impl Renderer {
     ) {
         use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
-        let (film_w, film_h) = {
-            let film = film.lock().unwrap();
-            (film.w(), film.h())
-        };
-        let px_size = camera.width() / film_w as f32;
+        let px_size = camera.width() / film.w() as f32;
 
         loop {
             let rx = manager.lock().unwrap().next(thread_id);
@@ -139,18 +131,18 @@ impl Renderer {
 
             let xi = task.chunk as u32;
             let spp = task.amount;
-            let mut col = vec![accum_init.clone(); film_h as usize];
-            for yi in 0..film_h {
+            let mut col = vec![accum_init.clone(); film.h() as usize];
+            for yi in 0..film.h() {
                 let mut accum = accum_init.clone();
                 for _i in 0..spp {
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dx = x - film_w as f32 / 2.0;
+                        let dx = x - film.w() as f32 / 2.0;
                         dx * px_size
                     };
                     let dv = {
                         let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dy = film_h as f32 / 2.0 - y;
+                        let dy = film.h() as f32 / 2.0 - y;
                         dy * px_size
                     };
                     let ray = camera.ray_to(du, dv);
@@ -173,12 +165,14 @@ impl Renderer {
                 }
             }
 
-            let mut film = film.lock().unwrap();
-            for yi in 0..film_h {
-                let pixel = film.at_mut(xi, yi);
-                pixel.accum.merge(&col[yi as usize]);
-                pixel.samples += spp;
-            }
+            film.with_lock(|mut film| {
+                for yi in 0..film.h() {
+                    let pixel = film.at_mut(xi, yi);
+                    pixel.accum.merge(&col[yi as usize]);
+                    pixel.samples += spp;
+                }
+            })
+            .unwrap();
         }
     }
 

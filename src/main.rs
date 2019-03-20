@@ -3,7 +3,7 @@ use getopts::Options;
 use log::*;
 use renderer::*;
 use sabiptrace::*;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 fn main() -> Result<(), std::io::Error> {
     let env = env_logger::Env::new().default_filter_or("sabiptrace=info");
@@ -61,11 +61,10 @@ fn main() -> Result<(), std::io::Error> {
     let v = vec![RGB::all(0.0); 10];
     let film = {
         let s = 50;
-        image::Film::new(16 * s, 9 * s, v.clone())
+        image::Film::new(16 * s, 9 * s, v.clone()).into_arc()
     };
 
     let (camera, scene) = example_scenes::make_black_shell();
-    let film = Arc::new(Mutex::new(film));
     let scene = Arc::new(scene);
 
     let film_config = FilmConfig {
@@ -147,22 +146,20 @@ fn main() -> Result<(), std::io::Error> {
 
     let renderer = Renderer;
     renderer.render(scene, &camera, film_config, render_config, sched);
-    let film = film.lock().unwrap();
-    for i in 0..v.len() {
-        film.to_image(|v| v.accum[i] / v.samples as f32)
-            .write_exr(&format!("{}/len{:>02}.exr", outdir, i));
-    }
-    film.to_image(|v| {
-        let mut sum = RGB::default();
-        for c in v.accum.iter() {
-            sum += *c;
+    film.with_lock(|film| {
+        for i in 0..v.len() {
+            film.to_image(|v| v.accum[i] / v.samples as f32)
+                .write_exr(&format!("{}/len{:>02}.exr", outdir, i));
         }
-        sum / v.samples as f32
+        film.to_image(|v| {
+            let mut sum = RGB::default();
+            for c in v.accum.iter() {
+                sum += *c;
+            }
+            sum / v.samples as f32
+        })
+        .write_exr(&format!("{}/total.exr", outdir));
     })
-    .write_exr(&format!("{}/total.exr", outdir));
-    //film.lock()
-    //    .unwrap()
-    //    .to_image(RGBPixel::average)
-    //    .write_exr("output/output.exr");
+    .unwrap();
     Ok(())
 }

@@ -1,4 +1,7 @@
 use crate::*;
+use std::ops::{Deref, DerefMut};
+use std::sync::*;
+
 pub struct Image {
     w: u32,
     h: u32,
@@ -99,13 +102,24 @@ impl Pixel<RGB> {
 pub type RGBPixel = Pixel<RGB>;
 
 #[derive(Clone)]
-pub struct Film<T> {
+pub struct Film<B> {
     w: u32,
     h: u32,
-    buf: Vec<T>,
+    buf: B,
+}
+impl<B> Film<B> {
+    pub fn w(&self) -> u32 {
+        self.w
+    }
+    pub fn h(&self) -> u32 {
+        self.h
+    }
 }
 
-impl<T: Clone> Film<Pixel<T>> {
+pub type FilmArc<T> = Film<Arc<Mutex<Vec<Pixel<T>>>>>;
+
+pub type FilmVec<T> = Film<Vec<Pixel<T>>>;
+impl<T: Clone> FilmVec<T> {
     pub fn new(w: u32, h: u32, v: T) -> Self {
         let mut buf = Vec::new();
         buf.resize(
@@ -115,27 +129,45 @@ impl<T: Clone> Film<Pixel<T>> {
                 samples: 0,
             },
         );
-        Film { w, h, buf }
+        FilmVec { w, h, buf }
+    }
+
+    pub fn into_arc(self) -> FilmArc<T> {
+        Film {
+            w: self.w,
+            h: self.h,
+            buf: Arc::new(Mutex::new(self.buf)),
+        }
     }
 }
 
-impl<T> Film<T> {
-    pub fn to_image(&self, f: impl FnMut(&T) -> RGB) -> Image {
+impl<T, B: Deref<Target = [Pixel<T>]>> Film<B> {
+    pub fn to_image(&self, f: impl FnMut(&Pixel<T>) -> RGB) -> Image {
         Image {
             w: self.w,
             h: self.h,
             buf: self.buf.iter().map(f).collect(),
         }
     }
+}
 
-    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut T {
-        &mut self.buf[(y * self.w + x) as usize]
+impl<T, B: DerefMut<Target = [Pixel<T>]>> Film<B> {
+    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut Pixel<T> {
+        &mut self.buf.deref_mut()[(y * self.w + x) as usize]
     }
+}
 
-    pub fn w(&self) -> u32 {
-        self.w
-    }
-    pub fn h(&self) -> u32 {
-        self.h
+impl<T> FilmArc<T> {
+    pub fn with_lock<F, A>(&self, f: F) -> Result<A, PoisonError<MutexGuard<Vec<Pixel<T>>>>>
+    where
+        F: FnOnce(Film<&mut [Pixel<T>]>) -> A,
+    {
+        self.buf.lock().map(|mut mg| {
+            f(Film {
+                w: self.w,
+                h: self.h,
+                buf: &mut **mg,
+            })
+        })
     }
 }
