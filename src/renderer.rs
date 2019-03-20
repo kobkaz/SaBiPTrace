@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone, Copy, Debug)]
 pub enum Integrator {
     PathTrace,
-    PathrTraceWithNee,
+    PathTraceWithNee,
     BidirectionalPathTrace,
 }
 
@@ -150,7 +150,7 @@ impl Renderer {
                         Integrator::PathTrace => {
                             Self::radiance_pt(false, scene, &ray, &mut accum, &mut rng)
                         }
-                        Integrator::PathrTraceWithNee => {
+                        Integrator::PathTraceWithNee => {
                             Self::radiance_pt(true, scene, &ray, &mut accum, &mut rng)
                         }
                         Integrator::BidirectionalPathTrace => {

@@ -73,7 +73,7 @@ fn main() -> Result<(), std::io::Error> {
     };
 
     let render_config = RenderConfig {
-        integrator: Integrator::PathrTraceWithNee,
+        integrator: Integrator::PathTraceWithNee,
         nthread: num_cpus::get(),
     };
 
