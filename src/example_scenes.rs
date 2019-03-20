@@ -380,15 +380,15 @@ pub fn make_black_shell() -> (Camera, Scene) {
     use shape::shapes::*;
     let mut objects = vec![];
 
-    objects.push(object::SimpleObject {
-        shape: Sphere {
-            center: P3::new(0.0, 0.0, 0.0),
-            radius: 1000.0,
-        }
-        .into(),
-        material: Lambert(RGB::all(0.0)).into(),
-        emission: None,
-    });
+    //objects.push(object::SimpleObject {
+    //    shape: Sphere {
+    //        center: P3::new(0.0, 0.0, 0.0),
+    //        radius: 1000.0,
+    //    }
+    //    .into(),
+    //    material: Lambert(RGB::all(0.0)).into(),
+    //    emission: None,
+    //});
 
     objects.push(object::SimpleObject {
         shape: Sphere {
@@ -410,17 +410,17 @@ pub fn make_black_shell() -> (Camera, Scene) {
         emission: Some(RGB::all(1.0)),
     });
 
-    for i in 0..100 {
-        objects.push(object::SimpleObject {
-            shape: Sphere {
-                center: P3::new(i as f32, 0.0, -2e3),
-                radius: 0.1,
-            }
-            .into(),
-            material: Lambert(RGB::all(0.0)).into(),
-            emission: Some(RGB::all(1000.0)),
-        });
-    }
+    //for i in 0..100 {
+    //    objects.push(object::SimpleObject {
+    //        shape: Sphere {
+    //            center: P3::new(i as f32, 0.0, -2e3),
+    //            radius: 0.1,
+    //        }
+    //        .into(),
+    //        material: Lambert(RGB::all(0.0)).into(),
+    //        emission: Some(RGB::all(1000.0)),
+    //    });
+    //}
 
     let scene = Scene::new(objects);
 

@@ -131,10 +131,10 @@ impl Renderer {
 
             let xi = task.chunk as u32;
             let spp = task.amount;
-            let mut col = vec![accum_init.clone(); film.h() as usize];
+            let mut samples = vec![];
             for yi in 0..film.h() {
-                let mut accum = accum_init.clone();
                 for _i in 0..spp {
+                    let mut radiance = accum_init.clone();
                     let du = {
                         let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
                         let dx = x - film.w() as f32 / 2.0;
@@ -148,28 +148,28 @@ impl Renderer {
                     let ray = camera.ray_to(du, dv);
                     match integrator {
                         Integrator::PathTrace => {
-                            Self::radiance_pt(false, scene, &ray, &mut accum, &mut rng)
+                            Self::radiance_pt(false, scene, &ray, &mut radiance, &mut rng)
                         }
                         Integrator::PathTraceWithNee => {
-                            Self::radiance_pt(true, scene, &ray, &mut accum, &mut rng)
+                            Self::radiance_pt(true, scene, &ray, &mut radiance, &mut rng)
                         }
                         Integrator::BidirectionalPathTrace => {
-                            Self::radiance_bdpt(scene, &ray, &mut accum, &mut rng)
+                            Self::radiance_bdpt(scene, &ray, &mut radiance, &mut rng)
                         }
                     };
-                }
-                if accum.is_finite() {
-                    col[yi as usize] = accum;
-                } else {
-                    warn!("radiance is not finite");
+                    if radiance.is_finite() {
+                        samples.push((xi, yi, radiance));
+                    } else {
+                        warn!("radiance is not finite");
+                    }
                 }
             }
 
             film.with_lock(|mut film| {
-                for yi in 0..film.h() {
+                for (xi, yi, sample) in samples {
                     let pixel = film.at_mut(xi, yi);
-                    pixel.accum.merge(&col[yi as usize]);
-                    pixel.samples += spp;
+                    pixel.accum.merge(&sample);
+                    pixel.samples += 1;
                 }
             })
             .unwrap();
