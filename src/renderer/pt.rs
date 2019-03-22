@@ -30,7 +30,7 @@ pub fn radiance<R: ?Sized>(
                     let pt_pdf_omega = last_ray_pdf;
                     let pt_pdf_area =
                         pt_pdf_omega * wout_local[2].abs() / hit.geom.dist / hit.geom.dist;
-                    let nee_pdf_area = scene.sample_light_pdf(&hit.geom.pos, hit.obj_ix);
+                    let nee_pdf_area = scene.sample_light_pdf(hit.pos(), hit.obj_ix);
                     let mis_weight = MIS_PDF_WEIGHT_PT * pt_pdf_area
                         / (MIS_PDF_WEIGHT_PT * pt_pdf_area + MIS_PDF_WEIGHT_NEE * nee_pdf_area);
                     radiance_accum.accum((throughput * emission * mis_weight, depth));
@@ -47,9 +47,9 @@ pub fn radiance<R: ?Sized>(
                     } = light_sample.value;
                     //dbg!(light_sample.pdf);
                     //dbg!(scene.sample_light_pdf(&light_pos, obj_ix));
-                    if scene.visible(light_pos, &hit.geom.pos) {
+                    if scene.visible(light_pos, hit.pos()) {
                         let g = hit.geom.g(&light_pos, light_normal);
-                        let light_dir = (light_pos - hit.geom.pos).normalize();
+                        let light_dir = (light_pos - hit.pos()).normalize();
                         let win_local = hit_lc.w2l() * light_dir;
                         let bsdf = hit.material.bsdf(&win_local, &wout_local);
                         let nee_contrib = throughput * light_emission * bsdf * g / light_sample.pdf;

@@ -24,6 +24,10 @@ impl ObjectHit {
     fn nearer_option(x: Option<Self>, y: Option<Self>) -> Option<Self> {
         merge_options(x, y, |x, y| if x.geom.dist < y.geom.dist { x } else { y })
     }
+
+    pub fn pos(&self) -> &P3 {
+        &self.geom.pos
+    }
 }
 
 pub struct SimpleObject {

@@ -15,6 +15,16 @@ struct Vertex {
     specular: bool,
 }
 
+impl Vertex {
+    pub fn pos(&self) -> &P3 {
+        &self.hit.geom.pos
+    }
+
+    pub fn gnorm(&self) -> &V3 {
+        &self.hit.geom.gnorm
+    }
+}
+
 #[derive(Clone)]
 struct ExtVertex {
     pdf_area: f32,
@@ -126,13 +136,11 @@ fn extend_path_pdf<'a>(
             let p = vs_init
                 .last()
                 .unwrap_or_else(|| &vs_latter.last().unwrap())
-                .hit
-                .geom
-                .pos;
+                .pos();
             let p_prev = if vs_init.len() <= 1 {
                 origin
             } else {
-                &vs_init[vs_init.len() - 2].hit.geom.pos
+                vs_init[vs_init.len() - 2].pos()
             };
             (p - p_prev).normalize()
         };
@@ -170,7 +178,7 @@ fn extend_path_pdf<'a>(
     let next_vs = {
         let next_vs = vs_latter
             .iter()
-            .map(|v| (v.hit.geom.pos, v.hit.geom.gnorm, v.specular))
+            .map(|v| (*v.pos(), *v.gnorm(), v.specular))
             .rev()
             .chain(v_last);
         if vs_init.is_empty() {
@@ -251,7 +259,7 @@ fn mis_weight(
             vec![]
         } else {
             let light = eye_vs.last().unwrap();
-            let light_pos = &light.hit.geom.pos;
+            let light_pos = light.pos();
             assert!(light.hit.emission.is_some());
             light_pos_pdf *= scene.sample_light_pdf(&light_pos, light.hit.obj_ix);
             light_dir_pdf *= 1.0; // TODO direction pdf
@@ -406,11 +414,11 @@ pub fn radiance<R: ?Sized>(
                     emission: light_emission,
                     ..
                 } = light_sample.value;
-                if !scene.visible(light_pos, &hit.geom.pos) {
+                if !scene.visible(light_pos, hit.pos()) {
                     (RGB::all(0.0), 0.0)
                 } else {
                     let g = hit.geom.g(light_pos, light_normal);
-                    let light_dir = (light_pos - hit.geom.pos).normalize();
+                    let light_dir = (light_pos - hit.pos()).normalize();
                     let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
                     let mis_weight = mis_weight(
                         scene,
@@ -442,13 +450,13 @@ pub fn radiance<R: ?Sized>(
                     w_local: l_win_local,
                     ..
                 } = v_light;
-                if !scene.visible(&e_hit.geom.pos, &l_hit.geom.pos) {
+                if !scene.visible(e_hit.pos(), l_hit.pos()) {
                     continue;
                 }
-                let e_to_l = (l_hit.geom.pos - e_hit.geom.pos).normalize();
+                let e_to_l = (l_hit.pos() - e_hit.pos()).normalize();
                 let e_win_local = e_hit.geom.lc().w2l() * e_to_l;
                 let l_wout_local = l_hit.geom.lc().w2l() * -e_to_l;
-                let g = e_hit.geom.g(&l_hit.geom.pos, &l_hit.geom.gnorm);
+                let g = e_hit.geom.g(l_hit.pos(), &l_hit.geom.gnorm);
                 let l_bsdf = l_hit.material.bsdf(&l_win_local, &l_wout_local);
                 let e_bsdf = e_hit.material.bsdf(&e_win_local, &e_wout_local);
                 let mis_weight = mis_weight(
