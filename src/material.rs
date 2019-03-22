@@ -97,6 +97,18 @@ impl Material {
         }
     }
 
+    pub fn bsdf_cos(&self, win_local: &V3, wout_local: &V3) -> RGB {
+        match self {
+            Lambert(m) => m.bsdf_cos(win_local, wout_local),
+            Mirror(m) => m.bsdf_cos(win_local, wout_local),
+            Transparent(m) => m.bsdf_cos(win_local, wout_local),
+            Mix(r, m1, m2) => {
+                m1.bsdf_cos(win_local, wout_local) * *r
+                    + m2.bsdf_cos(win_local, wout_local) * (1.0 - r)
+            }
+        }
+    }
+
     pub fn all_specular(&self) -> bool {
         match self {
             Lambert(m) => m.all_specular(),

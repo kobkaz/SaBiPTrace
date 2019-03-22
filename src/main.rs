@@ -15,6 +15,7 @@ fn main() -> Result<(), std::io::Error> {
     opts.optopt("t", "time", "time limit", "SEC");
     opts.optopt("r", "report", "report frequency", "SEC");
     opts.optopt("s", "spp", "spp limit", "SEC");
+    opts.optopt("i", "integrator", "show help", "pt|nee|bdpt");
     opts.optflag("h", "help", "show help");
 
     let matches = match opts.parse(&args[1..]) {
@@ -32,7 +33,6 @@ fn main() -> Result<(), std::io::Error> {
     }
 
     let outdir = matches.opt_str("o").unwrap();
-    std::fs::create_dir_all(&outdir)?;
     let time_limit = matches
         .opt_str("t")
         .map(|s| {
@@ -57,6 +57,20 @@ fn main() -> Result<(), std::io::Error> {
             }
         })
         .unwrap_or(Some(10));
+    let integrator = matches
+        .opt_str("i")
+        .and_then(|name| {
+            if name == "bdpt" {
+                Some(Integrator::BidirectionalPathTrace)
+            } else if name == "pt" {
+                Some(Integrator::PathTrace)
+            } else if name == "nee" {
+                Some(Integrator::PathTraceWithNee)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(Integrator::PathTraceWithNee);
 
     let v = vec![RGB::all(0.0); 10];
     let film = {
@@ -64,7 +78,7 @@ fn main() -> Result<(), std::io::Error> {
         image::Film::new(16 * s, 9 * s, v.clone()).into_arc()
     };
 
-    let (camera, scene) = example_scenes::make_black_shell();
+    let (camera, scene) = example_scenes::make_parallel_and_mirror();
     let scene = Arc::new(scene);
 
     let film_config = FilmConfig {
@@ -73,7 +87,7 @@ fn main() -> Result<(), std::io::Error> {
     };
 
     let render_config = RenderConfig {
-        integrator: Integrator::PathTraceWithNee,
+        integrator,
         nthread: num_cpus::get(),
     };
 
@@ -146,6 +160,8 @@ fn main() -> Result<(), std::io::Error> {
 
     let renderer = Renderer;
     renderer.render(scene, &camera, film_config, render_config, sched);
+
+    std::fs::create_dir_all(&outdir)?;
     film.with_lock(|film| {
         for i in 0..v.len() {
             film.to_image(|v| v.accum[i] / v.samples as f32)

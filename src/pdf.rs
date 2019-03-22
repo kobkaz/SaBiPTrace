@@ -9,6 +9,12 @@ pub struct PdfSample<T> {
 }
 
 impl<T> PdfSample<T> {
+    pub fn as_ref(&self) -> PdfSample<&T> {
+        PdfSample {
+            value: &self.value,
+            pdf: self.pdf,
+        }
+    }
     pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> PdfSample<U> {
         PdfSample {
             value: f(self.value),

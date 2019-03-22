@@ -13,6 +13,13 @@ impl Ray {
         Ray { origin, dir }
     }
 
+    pub fn from_to(origin: &P3, toward: &P3) -> Self {
+        Ray {
+            origin: *origin,
+            dir: (toward - origin).normalize(),
+        }
+    }
+
     pub fn new_from_origin(dir: V3) -> Self {
         Self::new(P3::origin(), dir)
     }

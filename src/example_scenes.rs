@@ -310,7 +310,67 @@ pub fn make_parallel() -> (Camera, Scene) {
     (camera, scene)
 }
 
-pub fn make_debug() -> (Camera, Scene) {
+pub fn make_parallel_and_mirror() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-50.0, 1e3, -1e3),
+            P3::new(-50.0, -1e3, -1e3),
+            P3::new(-50.0, 0.0, 1e3),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(50.0, 1e3, -1e3),
+            P3::new(50.0, -1e3, -1e3),
+            P3::new(50.0, 0.0, 1e3),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-50.0, -50.0, 50.0),
+            P3::new(50.0, -50.0, 50.0),
+            P3::new(0.0, -50.0, -200.0),
+        ])
+        .into(),
+        material: Mirror(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 5.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(10.0)),
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_fiveballs_mirror() -> (Camera, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -350,6 +410,71 @@ pub fn make_debug() -> (Camera, Scene) {
         }
         .into(),
         material: Mirror(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, -50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_fiveballs_lambert() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 5.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(10.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
         emission: None,
     });
     objects.push(object::SimpleObject {
@@ -421,6 +546,163 @@ pub fn make_black_shell() -> (Camera, Scene) {
     //        emission: Some(RGB::all(1000.0)),
     //    });
     //}
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_ball_triangle() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(100.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-30.00, -30.0, -10.0),
+            P3::new(30.00, -30.0, -10.0),
+            P3::new(0.00, 30.0, -10.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_ball_triangle_2() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(100.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(0.0, 50.0, -50.0),
+            P3::new(0.0, -50.0, -50.0),
+            P3::new(-50.0, 0.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(0.0, 50.0, -50.0),
+            P3::new(0.0, -50.0, -50.0),
+            P3::new(50.0, 0.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        Camera::new(origin, view_at, view_up, fov_degree)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_ball_triangle_mirror() -> (Camera, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 0.0, 0.0),
+            radius: 1.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(100.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(10.0, 10.0, -50.0),
+            P3::new(50.0, 10.0, 50.0),
+            P3::new(10.0, 50.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-10.0, 10.0, -50.0),
+            P3::new(-50.0, 10.0, 50.0),
+            P3::new(-10.0, 50.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(10.0, -10.0, -50.0),
+            P3::new(50.0, -10.0, 50.0),
+            P3::new(10.0, -50.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-10.0, -10.0, -50.0),
+            P3::new(-50.0, -10.0, 50.0),
+            P3::new(-10.0, -50.0, 50.0),
+        ])
+        .into(),
+        material: Mirror(RGB::all(1.0)).into(),
+        emission: None,
+    });
 
     let scene = Scene::new(objects);
 
