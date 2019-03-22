@@ -1,6 +1,4 @@
 use super::*;
-use crate::*;
-use rand::prelude::*;
 use scene::Scene;
 
 #[allow(unused_variables)]
@@ -296,7 +294,6 @@ fn mis_weight(
     };
     let original_t = eye_vs.len() + 1;
     assert!(debug_strategy_weight(original_s, original_t).is_some());
-    let nv = original_s + original_t;
     assert!(!eye_vs.is_empty());
     assert!(original_t >= 2);
 
@@ -465,10 +462,7 @@ pub fn radiance<R: ?Sized>(
         let s_max = (len - 2).min(LL_MAX + 2);
         assert!(s_min <= s_max);
         let mut accum_len = RGB::all(0.0);
-        let mut weight_sum = 0.0;
         for s in s_min..=s_max {
-            weight_sum += 1.0;
-
             let t = len - s;
             assert!(t >= 2);
             if debug_strategy_weight(s, t).is_none() {

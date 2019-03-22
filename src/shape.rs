@@ -120,7 +120,6 @@ trait ShapeImpl {
 
 pub mod shapes {
     use super::*;
-    use crate::*;
     use rand::prelude::*;
 
     #[derive(Clone)]
