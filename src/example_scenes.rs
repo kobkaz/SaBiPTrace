@@ -144,11 +144,12 @@ pub fn make_box() -> (Camera, Scene) {
             radius: 30.0,
         }
         .into(),
-        material: Material::mix(
-            0.1,
-            Mirror(RGB::all(1.0)).into(),
-            Lambert(RGB::all(1.0)).into(),
-        ),
+        material: Lambert(RGB::new(0.0, 1.0, 0.5)).into(),
+        //material: Material::mix(
+        //    0.1,
+        //    Mirror(RGB::all(1.0)).into(),
+        //    Lambert(RGB::all(1.0)).into(),
+        //),
         emission: None,
     });
 
