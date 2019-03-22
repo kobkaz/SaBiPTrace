@@ -475,6 +475,6 @@ pub fn radiance<R: ?Sized>(
             accum_len += contrib * mis_weight;
         }
 
-        radiance_accum.accum((accum_len, len - 2));
+        radiance_accum.accum(&(accum_len, len - 2));
     }
 }

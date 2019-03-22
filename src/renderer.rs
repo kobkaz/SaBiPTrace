@@ -19,27 +19,29 @@ pub enum Integrator {
 }
 
 pub trait Accumulator<T> {
-    fn accum(&mut self, color: T);
+    fn accum(&mut self, color: &T);
     fn merge(&mut self, another: &Self);
     fn is_finite(&self) -> bool;
 }
 
 impl Accumulator<(RGB, usize)> for RGB {
-    fn accum(&mut self, color: (RGB, usize)) {
+    fn accum(&mut self, color: &(RGB, usize)) {
         *self += color.0
     }
+
     fn merge(&mut self, another: &Self) {
         *self += *another
     }
+
     fn is_finite(&self) -> bool {
         self.is_finite()
     }
 }
 
 impl Accumulator<(RGB, usize)> for Vec<RGB> {
-    fn accum(&mut self, (color, len): (RGB, usize)) {
-        if len < self.len() {
-            self[len] += color;
+    fn accum(&mut self, (color, len): &(RGB, usize)) {
+        if *len < self.len() {
+            self[*len] += *color;
         }
     }
 
@@ -52,6 +54,26 @@ impl Accumulator<(RGB, usize)> for Vec<RGB> {
 
     fn is_finite(&self) -> bool {
         self.iter().all(RGB::is_finite)
+    }
+}
+
+impl<T, U, V> Accumulator<T> for (U, V)
+where
+    U: Accumulator<T>,
+    V: Accumulator<T>,
+{
+    fn accum(&mut self, color: &T) {
+        self.0.accum(color);
+        self.1.accum(color);
+    }
+
+    fn merge(&mut self, another: &Self) {
+        self.0.merge(&another.0);
+        self.1.merge(&another.1);
+    }
+
+    fn is_finite(&self) -> bool {
+        self.0.is_finite() && self.1.is_finite()
     }
 }
 

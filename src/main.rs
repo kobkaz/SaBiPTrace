@@ -127,7 +127,7 @@ fn main() -> Result<(), std::io::Error> {
         .unwrap_or(Integrator::PathTraceWithNee);
     let nthread_limit = program_options.nthread_limit.unwrap_or(OrInf::Inf);
 
-    let v = vec![RGB::all(0.0); 10];
+    let v = (vec![RGB::all(0.0); 1], RGB::all(0.0));
     let film = {
         let s = 50;
         image::Film::new(16 * s, 9 * s, v.clone()).into_arc()
@@ -221,18 +221,12 @@ fn main() -> Result<(), std::io::Error> {
 
     std::fs::create_dir_all(&outdir)?;
     film.with_lock(|film| {
-        for i in 0..v.len() {
-            film.to_image(|v| v.accum[i] / v.samples as f32)
+        for i in 0..v.0.len() {
+            film.to_image(|v| v.accum.0[i] / v.samples as f32)
                 .write_exr(&format!("{}/len{:>02}.exr", outdir, i));
         }
-        film.to_image(|v| {
-            let mut sum = RGB::default();
-            for c in v.accum.iter() {
-                sum += *c;
-            }
-            sum / v.samples as f32
-        })
-        .write_exr(&format!("{}/total.exr", outdir));
+        film.to_image(|v| v.accum.1 / v.samples as f32)
+            .write_exr(&format!("{}/total.exr", outdir));
     })
     .unwrap();
     Ok(())

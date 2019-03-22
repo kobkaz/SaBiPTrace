@@ -25,7 +25,7 @@ pub fn radiance<R: ?Sized>(
 
             if let Some(emission) = hit.emission {
                 if prev_specular || !enable_nee {
-                    radiance_accum.accum((throughput * emission, depth));
+                    radiance_accum.accum(&(throughput * emission, depth));
                 } else {
                     let pt_pdf_omega = last_ray_pdf;
                     let pt_pdf_area =
@@ -33,7 +33,7 @@ pub fn radiance<R: ?Sized>(
                     let nee_pdf_area = scene.sample_light_pdf(hit.pos(), hit.obj_ix);
                     let mis_weight = MIS_PDF_WEIGHT_PT * pt_pdf_area
                         / (MIS_PDF_WEIGHT_PT * pt_pdf_area + MIS_PDF_WEIGHT_NEE * nee_pdf_area);
-                    radiance_accum.accum((throughput * emission * mis_weight, depth));
+                    radiance_accum.accum(&(throughput * emission * mis_weight, depth));
                 }
             }
 
@@ -69,7 +69,7 @@ pub fn radiance<R: ?Sized>(
                             let mis_weight = MIS_PDF_WEIGHT_NEE * nee_pdf_area
                                 / (MIS_PDF_WEIGHT_PT * pt_pdf_area
                                     + MIS_PDF_WEIGHT_NEE * nee_pdf_area);
-                            radiance_accum.accum((nee_contrib * mis_weight, depth + 1));
+                            radiance_accum.accum(&(nee_contrib * mis_weight, depth + 1));
                         }
                     }
                 }
@@ -109,7 +109,7 @@ pub fn radiance<R: ?Sized>(
 
             ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
         } else {
-            radiance_accum.accum((scene.envmap_dir(&ray.dir) * throughput, depth));
+            radiance_accum.accum(&(scene.envmap_dir(&ray.dir) * throughput, depth));
             break;
         }
     }
