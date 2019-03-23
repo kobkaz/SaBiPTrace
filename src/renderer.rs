@@ -92,10 +92,13 @@ pub struct RenderConfig {
 pub struct Renderer;
 
 impl Renderer {
-    pub fn render<T: Send + Clone + Accumulator<(RGB, usize)> + 'static>(
+    pub fn render<
+        T: Send + Clone + Accumulator<(RGB, usize)> + 'static,
+        C: Send + Clone + Camera + 'static,
+    >(
         &self,
         scene: Arc<Scene>,
-        camera: &Camera,
+        camera: &C,
         film_config: FilmConfig<T>,
         config: RenderConfig,
         on_cycle_complete: Box<dyn FnMut(usize, usize) -> Option<usize> + Send>,
@@ -131,16 +134,14 @@ impl Renderer {
 
     fn render_thread<T: Clone + Accumulator<(RGB, usize)>>(
         scene: &Scene,
-        camera: Camera,
+        camera: impl Camera,
         film: FilmArc<T>,
         accum_init: T,
         integrator: Integrator,
         thread_id: usize,
         manager: Arc<Mutex<Manager>>,
     ) {
-        use rand::distributions::Uniform;
         let mut rng = SmallRng::from_entropy();
-        let px_size = camera.width() / film.w() as f32;
 
         loop {
             let rx = manager.lock().unwrap().next(thread_id);
@@ -160,17 +161,8 @@ impl Renderer {
             for yi in 0..film.h() {
                 for _i in 0..spp {
                     let mut radiance = accum_init.clone();
-                    let du = {
-                        let x = xi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dx = x - film.w() as f32 / 2.0;
-                        dx * px_size
-                    };
-                    let dv = {
-                        let y = yi as f32 + Uniform::new(0.0, 1.0).sample(&mut rng);
-                        let dy = film.h() as f32 / 2.0 - y;
-                        dy * px_size
-                    };
-                    let ray = camera.ray_to(du, dv);
+                    let (u, v) = film.sample_uv_in_pixel(xi as i32, yi as i32, &mut rng);
+                    let ray = camera.sample_ray(u, v, &mut rng);
                     match integrator {
                         Integrator::PathTrace => {
                             pt::radiance(false, scene, &ray, &mut radiance, &mut rng)

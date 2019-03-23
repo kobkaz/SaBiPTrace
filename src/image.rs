@@ -1,4 +1,5 @@
 use crate::*;
+use rand::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::sync::*;
 
@@ -117,8 +118,27 @@ impl<B> Film<B> {
 }
 
 pub type FilmArc<T> = Film<Arc<Mutex<Vec<Pixel<T>>>>>;
-
 pub type FilmVec<T> = Film<Vec<Pixel<T>>>;
+impl<B> Film<B> {
+    pub fn sample_uv_in_pixel(
+        &self,
+        xi: i32,
+        yi: i32,
+        rng: &mut (impl Rng + ?Sized),
+    ) -> (f32, f32) {
+        use rand::distributions::Uniform;
+        let u = {
+            let x = xi as f32 + Uniform::new(0.0, 1.0).sample(rng);
+            x / self.w() as f32 - 0.5
+        };
+        let v = {
+            let y = yi as f32 + Uniform::new(0.0, 1.0).sample(rng);
+            (self.h() as f32 / 2.0 - y) / self.w() as f32
+        };
+        (u, v)
+    }
+}
+
 impl<T: Clone> FilmVec<T> {
     pub fn new(w: u32, h: u32, v: T) -> Self {
         let mut buf = Vec::new();

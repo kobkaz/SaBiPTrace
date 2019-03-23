@@ -1,5 +1,7 @@
 use nalgebra::*;
+pub type P2 = Point2<f32>;
 pub type P3 = Point3<f32>;
+pub type V2 = Vector2<f32>;
 pub type V3 = Vector3<f32>;
 pub type M3 = Matrix3<f32>;
 

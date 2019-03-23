@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 use crate::*;
-use camera::Camera;
+use camera::{Camera, PinHole, ThinLens};
 use scene::Scene;
 
-pub fn make_scene() -> (Camera, Scene) {
+pub fn make_scene() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -44,13 +44,13 @@ pub fn make_scene() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.1, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_box() -> (Camera, Scene) {
+pub fn make_box() -> (impl Camera + Clone, Scene) {
     use material::materials::*;
     use material::Material;
     use shape::shapes::*;
@@ -76,7 +76,7 @@ pub fn make_box() -> (Camera, Scene) {
             P3::new(L + 20.0, 0.0, L * 10.0),
         ])
         .into(),
-        material: Lambert(RGB::new(0.0, 1.0, 0.0)).into(),
+        material: Lambert(RGB::new(0.0, 0.8, 0.0)).into(),
         emission: None,
     });
 
@@ -109,7 +109,7 @@ pub fn make_box() -> (Camera, Scene) {
             P3::new(0.0, -L, L * 10.0),
         ])
         .into(),
-        material: Lambert(RGB::new(1.0, 0.2, 0.2)).into(),
+        material: Lambert(RGB::new(0.8, 0.2, 0.2)).into(),
         emission: None,
     });
 
@@ -170,13 +170,19 @@ pub fn make_box() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.1, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        let radius = 1.0;
+        let f = 10.0;
+        let focus_dist = 250.0;
+        //PinHole::new(origin, view_at, view_up, fov_degree, Some(0.1))
+        ThinLens::new_with_focus_distance(
+            origin, view_at, view_up, radius, f, focus_dist, fov_degree,
+        )
     };
 
     (camera, scene)
 }
 
-pub fn make_plane_scene() -> (Camera, Scene) {
+pub fn make_plane_scene() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -256,13 +262,13 @@ pub fn make_plane_scene() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 40.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 100.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_parallel() -> (Camera, Scene) {
+pub fn make_parallel() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -305,13 +311,13 @@ pub fn make_parallel() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_parallel_and_mirror() -> (Camera, Scene) {
+pub fn make_parallel_and_mirror() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -365,13 +371,13 @@ pub fn make_parallel_and_mirror() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_fiveballs_mirror() -> (Camera, Scene) {
+pub fn make_fiveballs_mirror() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -430,13 +436,13 @@ pub fn make_fiveballs_mirror() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_fiveballs_lambert() -> (Camera, Scene) {
+pub fn make_fiveballs_lambert() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -495,13 +501,13 @@ pub fn make_fiveballs_lambert() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_black_shell() -> (Camera, Scene) {
+pub fn make_black_shell() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -555,13 +561,13 @@ pub fn make_black_shell() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_ball_triangle() -> (Camera, Scene) {
+pub fn make_ball_triangle() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -594,13 +600,13 @@ pub fn make_ball_triangle() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_ball_triangle_2() -> (Camera, Scene) {
+pub fn make_ball_triangle_2() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -643,13 +649,13 @@ pub fn make_ball_triangle_2() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
 }
 
-pub fn make_ball_triangle_mirror() -> (Camera, Scene) {
+pub fn make_ball_triangle_mirror() -> (PinHole, Scene) {
     use material::materials::*;
     use shape::shapes::*;
     let mut objects = vec![];
@@ -712,7 +718,7 @@ pub fn make_ball_triangle_mirror() -> (Camera, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
-        Camera::new(origin, view_at, view_up, fov_degree)
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
     (camera, scene)
