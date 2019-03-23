@@ -17,17 +17,6 @@ struct Vertex {
     w_local: V3,
     pdf_area: f32,
     specular: bool,
-    debug_bsdf_sample: pdf::PdfSample<(V3, RGB, bool)>,
-}
-
-#[derive(Clone, Debug)]
-struct EVDebugInfo {
-    dir: V3,
-    pdf_area: f32,
-    throughput: RGB,
-    hit: object::ObjectHit,
-    bsdf_sample: pdf::PdfSample<(V3, RGB, bool)>,
-    depth: usize,
 }
 
 impl Vertex {
@@ -44,16 +33,11 @@ impl Vertex {
 struct ExtVertex {
     pdf_area: f32,
     specular: bool,
-    debug_info: Option<EVDebugInfo>,
 }
 
 impl ExtVertex {
     pub fn new(pdf_area: f32, specular: bool) -> Self {
-        ExtVertex {
-            pdf_area,
-            specular,
-            debug_info: None,
-        }
+        ExtVertex { pdf_area, specular }
     }
 }
 
@@ -102,7 +86,6 @@ where
             w_local: wout_local,
             pdf_area,
             specular: next.value.2,
-            debug_bsdf_sample: next.clone(),
         });
 
         let bsdf_cos = next.value.1;
@@ -130,7 +113,6 @@ fn extend_path_pdf<'a>(
     vs_init: &'a [Vertex],
     vs_latter: &'a [Vertex],
     v_last: Option<(P3, V3, bool)>,
-    debug_trace: bool,
 ) -> impl Iterator<Item = ExtVertex> + 'a {
     use either::Either::{Left, Right};
     assert!(!vs_init.is_empty() || !vs_latter.is_empty());
@@ -225,18 +207,6 @@ fn extend_path_pdf<'a>(
         assert!(bsdf_cos.max() >= 0.0);
         assert!(dir_pdf_omega >= 0.0);
 
-        let debug = EVDebugInfo {
-            depth: state.depth,
-            dir: wout_local,
-            pdf_area: state.pdf_area,
-            throughput: state.throughput,
-            hit: v.hit.clone(),
-            bsdf_sample: pdf::PdfSample {
-                value: (win_local, bsdf_cos, v.specular),
-                pdf: dir_pdf_omega,
-            },
-        };
-
         state.throughput *= bsdf_cos / dir_pdf_omega;
         state.pdf_area *= dir_pdf_omega;
         if !v.specular {
@@ -249,13 +219,9 @@ fn extend_path_pdf<'a>(
         state.dir = win;
         state.depth += 1;
 
-        if debug_trace {
-            eprintln!("depth = {}, pdf = {:e}", state.depth - 1, state.pdf_area);
-        }
         Some(ExtVertex {
             pdf_area: state.pdf_area,
             specular: next_specular,
-            debug_info: Some(debug),
         })
     });
 
@@ -269,35 +235,6 @@ fn mis_weight(
     light_vs: &[Vertex],
     light_sample: Option<&scene::LightSampleResult>,
 ) -> f32 {
-    //if eye_vs.len() == 10 {
-    //    let i = 1;
-    //    let latter: Vec<_> = eye_vs[i..10].iter().rev().map(Clone::clone).collect();
-    //    let path = extend_path_pdf(true, &ray.origin, &eye_vs[0..i], &*latter, None, false);
-    //    println!("============eye");
-    //    for (depth, (v, ev)) in eye_vs.iter().zip(path).enumerate() {
-    //        println!("{:e} {:e}", v.pdf_area, ev.pdf_area);
-    //        println!("{} {}", v.specular, ev.specular);
-    //    }
-    //    //for (depth, (v, ev)) in eye_vs.iter().zip(path.skip(1)).enumerate() {
-    //    //    println!("depth {} {:?}", depth, ev.debug_info.map(|di| di.depth));
-    //    //}
-    //}
-    //
-    //if light_vs.len() == 10 {
-    //    dbg!(light_vs.len());
-    //    let i = 1;
-    //    let latter: Vec<_> = light_vs[i..].iter().rev().map(Clone::clone).collect();
-    //    let path = extend_path_pdf(false, &light_sample.unwrap().pos, &light_vs[0..i], &*latter, None, false);
-    //    println!("============light");
-    //    for (depth, (v, ev)) in light_vs.iter().zip(path).enumerate() {
-    //        println!("{:e} {:e}", v.pdf_area, ev.pdf_area);
-    //        println!("{} {}", v.specular, ev.specular);
-    //    }
-    //    //for (depth, (v, ev)) in eye_vs.iter().zip(path.skip(1)).enumerate() {
-    //    //    println!("depth {} {:?}", depth, ev.debug_info.map(|di| di.depth));
-    //    //}
-    //}
-
     let original_s = if light_sample.is_none() {
         assert!(light_vs.is_empty());
         0
@@ -315,7 +252,6 @@ fn mis_weight(
         eye_vs,
         light_vs,
         light_sample.map(|ls| (ls.pos, ls.normal, false)),
-        false,
     )
     .collect();
     let mut light_pos_pdf = 1.0;
@@ -331,27 +267,19 @@ fn mis_weight(
             assert!(light.hit.emission.is_some());
             light_pos_pdf *= scene.sample_light_pdf(&light_pos, light.hit.obj_ix);
             light_dir_pdf *= 1.0; // TODO direction pdf
-            extend_path_pdf(
-                false,
-                &light_pos,
-                &[],
-                &eye_vs[0..eye_vs.len() - 1],
-                None,
-                false,
-            )
-            .collect()
+            extend_path_pdf(false, &light_pos, &[], &eye_vs[0..eye_vs.len() - 1], None).collect()
         }
     } else if original_s == 1 {
         assert!(light_vs.is_empty());
         let light = light_sample.unwrap();
         light_pos_pdf *= scene.sample_light_pdf(&light.pos, light.obj_ix);
         light_dir_pdf *= 1.0; // TODO direction pdf
-        extend_path_pdf(false, &light.pos, &[], &eye_vs, None, false).collect()
+        extend_path_pdf(false, &light.pos, &[], &eye_vs, None).collect()
     } else {
         let light = light_sample.unwrap();
         light_pos_pdf *= scene.sample_light_pdf(&light.pos, light.obj_ix);
         light_dir_pdf *= 1.0; // TODO direction pdf
-        extend_path_pdf(false, &light.pos, &light_vs, &eye_vs, None, false).collect()
+        extend_path_pdf(false, &light.pos, &light_vs, &eye_vs, None).collect()
     };
 
     let pdfs: Vec<f32> = (0..=original_s + original_t - 2)
