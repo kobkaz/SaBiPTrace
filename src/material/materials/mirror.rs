@@ -33,10 +33,21 @@ impl MaterialImpl for Mirror {
         1.0
     }
 
-    fn bsdf(&self, _win: &V3, _wout: &V3) -> RGB {
-        RGB::all(0.0)
+    fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
+        if specular_component {
+            self.bsdf_cos(win_local, wout_local, true) / win_local[2]
+        } else {
+            RGB::all(0.0)
+        }
     }
 
+    fn bsdf_cos(&self, _win_local: &V3, _wout_local: &V3, specular_component: bool) -> RGB {
+        if specular_component {
+            self.0
+        } else {
+            RGB::all(0.0)
+        }
+    }
     fn all_specular(&self) -> bool {
         true
     }

@@ -86,25 +86,29 @@ impl Material {
         }
     }
 
-    pub fn bsdf(&self, win_local: &V3, wout_local: &V3) -> RGB {
+    //'specular_component' switches bsdf component to calculate
+    //when calcuate for specular components, it assumes that win_local and wout_local are oriented
+    //to have delta bsdf
+    pub fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
         match self {
-            Lambert(m) => m.bsdf(win_local, wout_local),
-            Mirror(m) => m.bsdf(win_local, wout_local),
-            Transparent(m) => m.bsdf(win_local, wout_local),
+            Lambert(m) => m.bsdf(win_local, wout_local, specular_component),
+            Mirror(m) => m.bsdf(win_local, wout_local, specular_component),
+            Transparent(m) => m.bsdf(win_local, wout_local, specular_component),
             Mix(r, m1, m2) => {
-                m1.bsdf(win_local, wout_local) * *r + m2.bsdf(win_local, wout_local) * (1.0 - r)
+                m1.bsdf(win_local, wout_local, specular_component) * *r
+                    + m2.bsdf(win_local, wout_local, specular_component) * (1.0 - r)
             }
         }
     }
 
-    pub fn bsdf_cos(&self, win_local: &V3, wout_local: &V3) -> RGB {
+    pub fn bsdf_cos(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
         match self {
-            Lambert(m) => m.bsdf_cos(win_local, wout_local),
-            Mirror(m) => m.bsdf_cos(win_local, wout_local),
-            Transparent(m) => m.bsdf_cos(win_local, wout_local),
+            Lambert(m) => m.bsdf_cos(win_local, wout_local, specular_component),
+            Mirror(m) => m.bsdf_cos(win_local, wout_local, specular_component),
+            Transparent(m) => m.bsdf_cos(win_local, wout_local, specular_component),
             Mix(r, m1, m2) => {
-                m1.bsdf_cos(win_local, wout_local) * *r
-                    + m2.bsdf_cos(win_local, wout_local) * (1.0 - r)
+                m1.bsdf_cos(win_local, wout_local, specular_component) * *r
+                    + m2.bsdf_cos(win_local, wout_local, specular_component) * (1.0 - r)
             }
         }
     }

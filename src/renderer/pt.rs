@@ -51,7 +51,7 @@ pub fn radiance<R: ?Sized>(
                         let g = hit.geom.g(&light_pos, light_normal);
                         let light_dir = (light_pos - hit.pos()).normalize();
                         let win_local = hit_lc.w2l() * light_dir;
-                        let bsdf = hit.material.bsdf(&win_local, &wout_local);
+                        let bsdf = hit.material.bsdf(&win_local, &wout_local, false);
                         let nee_contrib = throughput * light_emission * bsdf * g / light_sample.pdf;
                         if !nee_contrib.is_finite() {
                             warn!("nee_radiance is not finite {:?}", nee_contrib);

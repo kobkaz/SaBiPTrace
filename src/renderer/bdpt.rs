@@ -2,7 +2,7 @@ use super::*;
 use scene::Scene;
 
 #[allow(unused_variables)]
-fn debug_strategy_weight(s: usize, t: usize) -> Option<f32> {
+fn strategy_weight(s: usize, t: usize) -> Option<f32> {
     if s == 1 || s == 4 {
         Some(1.0)
     } else {
@@ -221,7 +221,7 @@ fn extend_path_pdf<'a>(
         let win = to_next / r;
         let win_local = lc.w2l() * win;
         let dir_pdf_omega = v.hit.material.sample_win_pdf(&wout_local, &win_local);
-        let bsdf_cos = v.hit.material.bsdf_cos(&win_local, &wout_local);
+        let bsdf_cos = v.hit.material.bsdf_cos(&win_local, &wout_local, v.specular);
         assert!(bsdf_cos.max() >= 0.0);
         assert!(dir_pdf_omega >= 0.0);
 
@@ -305,7 +305,7 @@ fn mis_weight(
         light_vs.len() + 1
     };
     let original_t = eye_vs.len() + 1;
-    assert!(debug_strategy_weight(original_s, original_t).is_some());
+    assert!(strategy_weight(original_s, original_t).is_some());
     assert!(!eye_vs.is_empty());
     assert!(original_t >= 2);
 
@@ -358,7 +358,7 @@ fn mis_weight(
         .map(|s| {
             let t = original_s + original_t - s;
             assert!(t >= 2);
-            let c = debug_strategy_weight(s, t);
+            let c = strategy_weight(s, t);
             if c.is_none() {
                 return 0.0;
             }
@@ -467,7 +467,7 @@ pub fn radiance<R: ?Sized>(
     let light_vs = gen_vertices(scene, &initial_ray.value.0, false, LL_MAX, rng);
     let len_l = light_vs.len();
 
-    for len in /*2..=len_e + len_l + 4*/  6..=6 {
+    for len in 2..=len_e + len_l + 4 {
         let s_min = len - len.min(LE_MAX + 2);
         let s_max = (len - 2).min(LL_MAX + 2);
         assert!(s_min <= s_max);
@@ -475,7 +475,7 @@ pub fn radiance<R: ?Sized>(
         for s in s_min..=s_max {
             let t = len - s;
             assert!(t >= 2);
-            if debug_strategy_weight(s, t).is_none() {
+            if strategy_weight(s, t).is_none() {
                 continue;
             }
             let e_i = t - 2;
@@ -510,7 +510,9 @@ pub fn radiance<R: ?Sized>(
                 } else {
                     let g = hit.geom.g(light_pos, light_normal);
                     let light_dir = (light_pos - hit.pos()).normalize();
-                    let bsdf = hit.material.bsdf(&(hit_lc.w2l() * light_dir), &wout_local);
+                    let bsdf = hit
+                        .material
+                        .bsdf(&(hit_lc.w2l() * light_dir), &wout_local, false);
                     let mis_weight = mis_weight(
                         scene,
                         ray,
@@ -548,8 +550,8 @@ pub fn radiance<R: ?Sized>(
                 let e_win_local = e_hit.geom.lc().w2l() * e_to_l;
                 let l_wout_local = l_hit.geom.lc().w2l() * -e_to_l;
                 let g = e_hit.geom.g(l_hit.pos(), &l_hit.geom.gnorm);
-                let l_bsdf = l_hit.material.bsdf(&l_win_local, &l_wout_local);
-                let e_bsdf = e_hit.material.bsdf(&e_win_local, &e_wout_local);
+                let l_bsdf = l_hit.material.bsdf(&l_win_local, &l_wout_local, false);
+                let e_bsdf = e_hit.material.bsdf(&e_win_local, &e_wout_local, false);
                 let mis_weight = mis_weight(
                     scene,
                     ray,
@@ -563,10 +565,9 @@ pub fn radiance<R: ?Sized>(
                 (contrib, mis_weight)
             };
 
-            radiance_accum.accum(&(contrib * mis_weight, s));
             accum_len += contrib * mis_weight;
         }
 
-        //radiance_accum.accum(&(accum_len, len - 2));
+        radiance_accum.accum(&(accum_len, len - 2));
     }
 }

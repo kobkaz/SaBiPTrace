@@ -24,10 +24,10 @@ pub trait MaterialImpl {
 
     fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32;
 
-    fn bsdf(&self, win_local: &V3, wout_local: &V3) -> RGB;
+    fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB;
 
-    fn bsdf_cos(&self, win_local: &V3, wout_local: &V3) -> RGB {
-        self.bsdf(win_local, wout_local) * win_local[2].abs()
+    fn bsdf_cos(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
+        self.bsdf(win_local, wout_local, specular_component) * win_local[2].abs()
     }
 
     fn all_specular(&self) -> bool;

@@ -31,11 +31,15 @@ impl MaterialImpl for Lambert {
         next_dir.pdf(win_local)
     }
 
-    fn bsdf(&self, win_local: &V3, wout_local: &V3) -> RGB {
-        if win_local[2] * wout_local[2] > 0.0 {
-            self.0 * std::f32::consts::FRAC_1_PI
-        } else {
+    fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
+        if specular_component {
             RGB::all(0.0)
+        } else {
+            if win_local[2] * wout_local[2] > 0.0 {
+                self.0 * std::f32::consts::FRAC_1_PI
+            } else {
+                RGB::all(0.0)
+            }
         }
     }
 
