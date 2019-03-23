@@ -3,7 +3,11 @@ use scene::Scene;
 
 #[allow(unused_variables)]
 fn debug_strategy_weight(s: usize, t: usize) -> Option<f32> {
-    Some(1.0)
+    if s == 1 || s == 4 {
+        Some(1.0)
+    } else {
+        None
+    }
 }
 
 #[derive(Clone)]
@@ -463,9 +467,7 @@ pub fn radiance<R: ?Sized>(
     let light_vs = gen_vertices(scene, &initial_ray.value.0, false, LL_MAX, rng);
     let len_l = light_vs.len();
 
-    for len in 2..=len_e + len_l + 4 {
-        //debug!
-        //if len != 5 { continue; }
+    for len in /*2..=len_e + len_l + 4*/  6..=6 {
         let s_min = len - len.min(LE_MAX + 2);
         let s_max = (len - 2).min(LL_MAX + 2);
         assert!(s_min <= s_max);
@@ -561,12 +563,10 @@ pub fn radiance<R: ?Sized>(
                 (contrib, mis_weight)
             };
 
-            //if len == 5 {
-            //    radiance_accum.accum((contrib * mis_weight, s));
-            //}
+            radiance_accum.accum(&(contrib * mis_weight, s));
             accum_len += contrib * mis_weight;
         }
 
-        radiance_accum.accum(&(accum_len, len - 2));
+        //radiance_accum.accum(&(accum_len, len - 2));
     }
 }
