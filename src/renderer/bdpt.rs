@@ -3,11 +3,7 @@ use scene::Scene;
 
 #[allow(unused_variables)]
 fn strategy_weight(s: usize, t: usize) -> Option<f32> {
-    if s == 1 || s == 4 {
-        Some(1.0)
-    } else {
-        None
-    }
+    Some(1.0)
 }
 
 #[derive(Clone)]
