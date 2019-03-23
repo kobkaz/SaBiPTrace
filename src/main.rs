@@ -127,7 +127,7 @@ fn main() -> Result<(), std::io::Error> {
         .unwrap_or(Integrator::PathTraceWithNee);
     let nthread_limit = program_options.nthread_limit.unwrap_or(OrInf::Inf);
 
-    let v = (vec![RGB::all(0.0); 10], RGB::all(0.0));
+    let v = (vec![RGB::all(0.0); 20], RGB::all(0.0));
     let film = {
         let s = 50;
         image::Film::new(16 * s, 9 * s, v.clone()).into_arc()

@@ -12,6 +12,7 @@ struct Vertex {
     throughput: RGB,
     w_local: V3,
     pdf_area: f32,
+    pdf_area_ratio: f32,
     specular: bool,
 }
 
@@ -28,21 +29,30 @@ impl Vertex {
 #[derive(Clone)]
 struct ExtVertex {
     pdf_area: f32,
+    pdf_area_ratio: f32,
     specular: bool,
 }
 
 impl ExtVertex {
-    pub fn new(pdf_area: f32, specular: bool) -> Self {
-        ExtVertex { pdf_area, specular }
+    pub fn new(pdf_area: f32, pdf_area_ratio: f32, specular: bool) -> Self {
+        ExtVertex {
+            pdf_area,
+            pdf_area_ratio,
+            specular,
+        }
     }
 }
 
 fn continue_chance_from_throughput(throughput: &RGB, depth: usize) -> f32 {
-    let base = throughput.max().min(1.0).max(0.1);
-    if depth < 3 {
+    if !throughput.is_finite() {
+        return 0.0;
+    }
+
+    let base = (throughput.max() * 0.8).min(1.0).max(0.0);
+    if depth < 10 {
         base
     } else {
-        base * 0.5f32.powi((depth - 3) as i32)
+        base * (0.95f32.powi(depth as i32 - 10))
     }
 }
 
@@ -60,6 +70,7 @@ where
     let mut throughput = RGB::all(1.0);
     let mut ray = ray.clone();
     let mut pdf_area = 1.0;
+    let mut pdf_area_ratio = 1.0;
     for depth in 0..max_depth {
         let hit = scene.test_hit(&ray, 1e-3, std::f32::MAX / 2.0);
         if hit.is_none() {
@@ -71,6 +82,7 @@ where
         if vs.last().map(|v| !v.specular).unwrap_or(!init_ray_delta) {
             //convert the solid-angle pdf from the previous loop
             pdf_area *= wout_local[2].abs() / hit.geom.dist / hit.geom.dist;
+            pdf_area_ratio *= wout_local[2].abs() / hit.geom.dist / hit.geom.dist;
         }
 
         let next = hit.material.sample_win_cos(&wout_local, rng);
@@ -81,12 +93,16 @@ where
             throughput,
             w_local: wout_local,
             pdf_area,
+            pdf_area_ratio,
             specular: next.value.2,
         });
+        pdf_area_ratio = 1.0;
 
         let bsdf_cos = next.value.1;
         throughput *= bsdf_cos / next.pdf;
-        pdf_area *= next.pdf; // will be converted into area pdf in the next loop
+        // will be converted into area pdf in the next loop
+        pdf_area *= next.pdf;
+        pdf_area_ratio *= next.pdf;
 
         let cont = pdf::RandomBool {
             chance: continue_chance_from_throughput(&throughput, depth),
@@ -98,6 +114,7 @@ where
 
         throughput /= cont.pdf;
         pdf_area *= cont.pdf;
+        pdf_area_ratio *= cont.pdf;
         ray = hit_lc.l2w() * Ray::new(P3::origin(), win_local);
     }
     vs
@@ -148,14 +165,14 @@ fn extend_path_pdf<'a>(
             Left(
                 vs_latter
                     .last()
-                    .map(|v| ExtVertex::new(init_pdf_area, v.specular))
+                    .map(|v| ExtVertex::new(init_pdf_area, init_pdf_area, v.specular))
                     .into_iter(),
             )
         } else {
             Right(
                 vs_init
                     .iter()
-                    .map(|v| ExtVertex::new(v.pdf_area, v.specular)),
+                    .map(|v| ExtVertex::new(v.pdf_area, v.pdf_area_ratio, v.specular)),
             )
         };
         let init_state = State {
@@ -203,22 +220,30 @@ fn extend_path_pdf<'a>(
         assert!(bsdf_cos.max() >= 0.0);
         assert!(dir_pdf_omega >= 0.0);
 
+        let mut pdf_area_ratio = 1.0;
         state.throughput *= bsdf_cos / dir_pdf_omega;
         state.pdf_area *= dir_pdf_omega;
+        pdf_area_ratio *= dir_pdf_omega;
         if !v.specular {
             state.pdf_area *= win.dot(&next_normal).abs() / r / r;
+            pdf_area_ratio *= win.dot(&next_normal).abs() / r / r;
         }
         let cont_prob = continue_chance_from_throughput(&state.throughput, state.depth);
         state.throughput /= cont_prob;
-        assert!(cont_prob >= 0.0);
         state.pdf_area *= cont_prob;
+        pdf_area_ratio *= cont_prob;
         state.dir = win;
         state.depth += 1;
 
-        Some(ExtVertex {
-            pdf_area: state.pdf_area,
-            specular: next_specular,
-        })
+        if pdf_area_ratio > 0.0 {
+            Some(ExtVertex {
+                pdf_area: state.pdf_area,
+                pdf_area_ratio,
+                specular: next_specular,
+            })
+        } else {
+            None
+        }
     });
 
     init.chain(latter)
@@ -278,71 +303,41 @@ fn mis_weight(
         extend_path_pdf(false, &light.pos, &light_vs, &eye_vs, None).collect()
     };
 
-    let pdfs: Vec<f32> = (0..=original_s + original_t - 2)
-        .map(|s| {
+    let pdfs_r: Vec<f32> = (0..=original_s + original_t - 2)
+        .scan(1.0, |r_pdf, s| {
             let t = original_s + original_t - s;
             assert!(t >= 2);
-            let c = strategy_weight(s, t);
-            if c.is_none() {
-                return 0.0;
+            if t >= eye_extended.len() + 2 {
+                return Some(0.0);
+            } else if t == eye_extended.len() + 1 {
+                return Some(*r_pdf);
             }
-            let c = c.unwrap();
-            let ExtVertex {
-                pdf_area: eye_terminal_pdf,
-                specular: eye_terminal_specular,
-                ..
-            } = eye_extended[t - 2];
-            let pdf = if s == 0 {
-                eye_terminal_pdf
-            } else if s == 1 {
-                if eye_terminal_specular {
-                    0.0
-                } else {
-                    eye_terminal_pdf * light_pos_pdf
-                }
-            } else {
-                let ExtVertex {
-                    pdf_area: light_terminal_pdf,
-                    specular: light_terminal_specular,
-                    ..
-                } = light_extended[s - 2];
-                if eye_terminal_specular || light_terminal_specular {
-                    0.0
-                } else {
-                    eye_terminal_pdf * light_terminal_pdf * light_pos_pdf * light_dir_pdf
-                }
-            };
-            if !pdf.is_finite() || pdf < 0.0 {
-                error!("negative or not finite pdf {}", pdf);
-                0.0
-            } else {
-                c * pdf
+
+            *r_pdf /= eye_extended[t - 1].pdf_area_ratio;
+            if s == 1 {
+                *r_pdf *= light_pos_pdf;
+            } else if s == 2 {
+                *r_pdf *= light_dir_pdf;
             }
+
+            if s >= 2 {
+                if s >= light_extended.len() + 2 {
+                    return Some(0.0);
+                }
+                *r_pdf *= light_extended[s - 2].pdf_area_ratio;
+            }
+
+            let c = strategy_weight(s, t).unwrap_or(0.0);
+            Some(c * *r_pdf)
         })
         .collect();
-
-    /*
-    if nv == 5 {
-        if original_s == 1 {
-            println!("==== eye_ext ====");
-            for v in eye_extended {
-                println!("{:e}", v.pdf_area);
-            }
-            println!("==== light__ext ====");
-            for v in light_extended {
-                println!("{:e}", v.pdf_area);
-            }
-        }
-    }
-    */
-
-    let sum = pdfs.iter().sum::<f32>();
-    let original_pdf = pdfs[original_s];
-    let weight = original_pdf / sum;
-    if !weight.is_finite() {
-        return 0.0;
+    let sum_r = pdfs_r.iter().sum::<f32>();
+    let original_pdf_r = pdfs_r[original_s];
+    let weight_r = original_pdf_r / sum_r;
+    if !weight_r.is_finite() {
+        0.0
     } else {
-        weight
+        weight_r
     }
 }
 
@@ -354,8 +349,9 @@ pub fn radiance<R: ?Sized>(
 ) where
     R: Rng,
 {
-    const LE_MAX: usize = 20;
-    const LL_MAX: usize = 20;
+    //TODO: take acount of depth limits in MIS
+    const LE_MAX: usize = 30;
+    const LL_MAX: usize = 30;
     let eye_vs = gen_vertices(scene, ray, true, LE_MAX, rng);
     let len_e = eye_vs.len();
 
