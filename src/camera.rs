@@ -2,14 +2,23 @@ use crate::*;
 use log::*;
 use rand::prelude::*;
 
+pub struct ReverseSampleResult {
+    pub u: f32,
+    pub v: f32,
+    pub lens_point: P3,
+    pub measure_conv: f32,
+}
+
 pub trait Camera {
+    fn film_width(&self) -> f32;
     fn sample_ray<R: Rng + ?Sized>(&self, u: f32, v: f32, rng: &mut R) -> Ray;
+    fn sample_film_uv<R: Rng + ?Sized>(&self, p: &P3, rng: &mut R) -> Option<ReverseSampleResult>;
 }
 
 #[derive(Clone)]
 pub struct PinHole {
     lc: LocalCoord,
-    width: f32,
+    film_width: f32,
     hole_radius: Option<f32>,
 }
 
@@ -26,13 +35,17 @@ impl PinHole {
         let half_tan = (fov_rad / 2.0).tan();
         PinHole {
             lc,
-            width: 2.0 * half_tan,
+            film_width: 2.0 * half_tan,
             hole_radius,
         }
     }
 }
 
 impl Camera for PinHole {
+    fn film_width(&self) -> f32 {
+        self.film_width
+    }
+
     fn sample_ray<R: Rng + ?Sized>(&self, u: f32, v: f32, rng: &mut R) -> Ray {
         use rand::distributions::Uniform;
         let origin = if let Some(radius) = self.hole_radius {
@@ -46,8 +59,37 @@ impl Camera for PinHole {
         self.lc.l2w()
             * Ray::new(
                 origin,
-                V3::new(self.width * u, self.width * v, -1.0).normalize(),
+                V3::new(self.film_width * u, self.film_width * v, -1.0).normalize(),
             )
+    }
+    fn sample_film_uv<R: Rng + ?Sized>(&self, p: &P3, rng: &mut R) -> Option<ReverseSampleResult> {
+        use rand::distributions::Uniform;
+        let p_local = self.lc.w2l() * p;
+        let hole_point_local = if let Some(radius) = self.hole_radius {
+            let theta = Uniform::new(-std::f32::consts::PI, std::f32::consts::PI).sample(rng);
+            let r = radius * Uniform::new(0.0f32, 1.0).sample(rng).sqrt();
+            P3::new(r * theta.cos(), r * theta.sin(), 0.0)
+        } else {
+            P3::origin()
+        };
+
+        if p_local[2] >= 0.0 {
+            None
+        } else {
+            let film_point_local =
+                hole_point_local + (p_local - hole_point_local) / p_local[2].abs();
+            let film_to_hole = hole_point_local - film_point_local;
+            let sq_dist_fh = film_to_hole.norm_squared();
+            let sq_dist_hp = (p_local - hole_point_local).norm_squared();
+            let cos_theta = film_to_hole[2].abs() / sq_dist_fh.sqrt();
+
+            Some(ReverseSampleResult {
+                u: film_point_local[0] / self.film_width,
+                v: film_point_local[1] / self.film_width,
+                lens_point: self.lc.l2w() * hole_point_local,
+                measure_conv: sq_dist_fh / sq_dist_hp / cos_theta,
+            })
+        }
     }
 }
 
@@ -113,6 +155,9 @@ impl ThinLens {
 }
 
 impl Camera for ThinLens {
+    fn film_width(&self) -> f32 {
+        self.film_width
+    }
     fn sample_ray<R: Rng + ?Sized>(&self, u: f32, v: f32, rng: &mut R) -> Ray {
         use rand::distributions::Uniform;
         let a = self.film_distance;
@@ -125,5 +170,12 @@ impl Camera for ThinLens {
 
         let ray_to = f / (a - f) * P3::new(u * self.film_width, v * self.film_width, -a);
         self.lc.l2w() * Ray::from_to(&lens_point, &ray_to)
+    }
+    fn sample_film_uv<R: Rng + ?Sized>(
+        &self,
+        _p: &P3,
+        _rng: &mut R,
+    ) -> Option<ReverseSampleResult> {
+        unimplemented!();
     }
 }

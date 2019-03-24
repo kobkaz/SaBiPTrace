@@ -1,3 +1,4 @@
+pub mod accum;
 pub mod math;
 pub use math::*;
 pub mod camera;

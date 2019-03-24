@@ -1,11 +1,12 @@
+use crate::accum::*;
 use crate::*;
 use rand::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::sync::*;
 
 pub struct Image {
-    w: u32,
-    h: u32,
+    w: usize,
+    h: usize,
     buf: Vec<RGB>,
 }
 
@@ -15,10 +16,12 @@ impl Image {
         let mut file = std::fs::File::open(file).ok()?;
         let mut file = InputFile::new(&mut file).ok()?;
         let (w, h) = file.header().data_dimensions();
+        let w = w as usize;
+        let h = h as usize;
         //let mut buf: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]; (w * h) as usize];
         let mut buf: Vec<RGB16> = vec![Default::default(); (w * h) as usize];
         {
-            let mut fb = FrameBufferMut::new(w, h);
+            let mut fb = FrameBufferMut::new(w as u32, h as u32);
             fb.insert_channels(&[("R", 0.0), ("G", 0.0), ("B", 0.0)], &mut buf);
             file.read_pixels(&mut fb).ok();
         }
@@ -29,7 +32,7 @@ impl Image {
         })
     }
 
-    pub fn new(w: u32, h: u32) -> Self {
+    pub fn new(w: usize, h: usize) -> Self {
         let mut buf = Vec::new();
         buf.resize((w * h) as usize, RGB::new(0.0, 0.0, 0.0));
         Image { w, h, buf }
@@ -42,13 +45,13 @@ impl Image {
         let mut file = ScanlineOutputFile::new(
             &mut file,
             Header::new()
-                .set_resolution(self.w, self.h)
+                .set_resolution(self.w as u32, self.h as u32)
                 .add_channel("R", PixelType::FLOAT)
                 .add_channel("G", PixelType::FLOAT)
                 .add_channel("B", PixelType::FLOAT),
         )
         .unwrap();
-        let mut buffer = FrameBuffer::new(self.w, self.h);
+        let mut buffer = FrameBuffer::new(self.w as u32, self.h as u32);
         buffer.insert_channels(&["R", "G", "B"], &self.buf[..]);
         file.write_pixels(&buffer).unwrap();
     }
@@ -57,62 +60,39 @@ impl Image {
         let w = self.w as f32;
         let h = self.h as f32;
         let x = (w * (u + 1.0) / 2.0) as i32;
-        let x = (x.max(0) as u32).min(self.w - 1);
+        let x = (x.max(0) as usize).min(self.w - 1);
         let y = (h * (1.0 - v) / 2.0) as i32;
-        let y = (y.max(0) as u32).min(self.h - 1);
+        let y = (y.max(0) as usize).min(self.h - 1);
         self.at(x, y)
     }
 
-    pub fn at(&self, x: u32, y: u32) -> &RGB {
+    pub fn at(&self, x: usize, y: usize) -> &RGB {
         &self.buf[(y * self.w + x) as usize]
     }
 
-    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut RGB {
+    pub fn at_mut(&mut self, x: usize, y: usize) -> &mut RGB {
         &mut self.buf[(y * self.w + x) as usize]
     }
 
-    pub fn w(&self) -> u32 {
+    pub fn w(&self) -> usize {
         self.w
     }
-    pub fn h(&self) -> u32 {
+    pub fn h(&self) -> usize {
         self.h
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Pixel<T> {
-    pub accum: T,
-    pub samples: usize,
-}
-
-impl<T: Default> Default for Pixel<T> {
-    fn default() -> Self {
-        Pixel {
-            accum: Default::default(),
-            samples: 0,
-        }
-    }
-}
-
-impl Pixel<RGB> {
-    pub fn average(&self) -> RGB {
-        self.accum / (self.samples as f32)
-    }
-}
-
-pub type RGBPixel = Pixel<RGB>;
-
 #[derive(Clone)]
 pub struct Film<B> {
-    w: u32,
-    h: u32,
+    w: usize,
+    h: usize,
     buf: B,
 }
 impl<B> Film<B> {
-    pub fn w(&self) -> u32 {
+    pub fn w(&self) -> usize {
         self.w
     }
-    pub fn h(&self) -> u32 {
+    pub fn h(&self) -> usize {
         self.h
     }
 }
@@ -137,10 +117,26 @@ impl<B> Film<B> {
         };
         (u, v)
     }
+
+    pub fn uv_to_ix(&self, u: f32, v: f32) -> (i32, i32) {
+        let x = (u + 0.5) * self.w() as f32;
+        let y = self.h() as f32 / 2.0 - v * self.w() as f32;
+        (x as i32, y as i32)
+    }
+    pub fn uv_to_ix_in_range(&self, u: f32, v: f32) -> Option<(usize, usize)> {
+        let (xi, yi) = self.uv_to_ix(u, v);
+        if xi < 0 || self.w() <= xi as usize {
+            None
+        } else if yi < 0 || self.h() <= yi as usize {
+            None
+        } else {
+            Some((xi as usize, yi as usize))
+        }
+    }
 }
 
 impl<T: Clone> FilmVec<T> {
-    pub fn new(w: u32, h: u32, v: T) -> Self {
+    pub fn new(w: usize, h: usize, v: T) -> Self {
         let mut buf = Vec::new();
         buf.resize(
             (w * h) as usize,
@@ -161,6 +157,14 @@ impl<T: Clone> FilmVec<T> {
     }
 }
 
+impl<T: Accumulator> FilmVec<T> {
+    pub fn reset(&mut self) {
+        for pixel in self.buf.iter_mut() {
+            pixel.reset()
+        }
+    }
+}
+
 impl<T, B: Deref<Target = [Pixel<T>]>> Film<B> {
     pub fn to_image(&self, f: impl FnMut(&Pixel<T>) -> RGB) -> Image {
         Image {
@@ -172,7 +176,7 @@ impl<T, B: Deref<Target = [Pixel<T>]>> Film<B> {
 }
 
 impl<T, B: DerefMut<Target = [Pixel<T>]>> Film<B> {
-    pub fn at_mut(&mut self, x: u32, y: u32) -> &mut Pixel<T> {
+    pub fn at_mut(&mut self, x: usize, y: usize) -> &mut Pixel<T> {
         &mut self.buf.deref_mut()[(y * self.w + x) as usize]
     }
 }

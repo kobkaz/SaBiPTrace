@@ -7,13 +7,13 @@ fn strategy_weight(s: usize, t: usize) -> Option<f32> {
 }
 
 #[derive(Clone)]
-struct Vertex {
-    hit: object::ObjectHit,
-    throughput: RGB,
-    w_local: V3,
-    pdf_area: f32,
-    pdf_area_ratio: f32,
-    specular: bool,
+pub struct Vertex {
+    pub hit: object::ObjectHit,
+    pub throughput: RGB,
+    pub w_local: V3,
+    pub pdf_area: f32,
+    pub pdf_area_ratio: f32,
+    pub specular: bool,
 }
 
 impl Vertex {
@@ -56,7 +56,7 @@ fn continue_chance_from_throughput(throughput: &RGB, depth: usize) -> f32 {
     }
 }
 
-fn gen_vertices<R: ?Sized>(
+pub fn gen_vertices<R: ?Sized>(
     scene: &Scene,
     ray: &Ray,
     init_ray_delta: bool,
@@ -344,7 +344,7 @@ fn mis_weight(
 pub fn radiance<R: ?Sized>(
     scene: &Scene,
     ray: &Ray,
-    radiance_accum: &mut impl Accumulator<(RGB, usize)>,
+    radiance_accum: &mut impl Accumulator,
     rng: &mut R,
 ) where
     R: Rng,

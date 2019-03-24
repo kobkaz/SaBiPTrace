@@ -4,7 +4,7 @@ pub fn radiance<R: ?Sized>(
     enable_nee: bool,
     scene: &Scene,
     ray: &Ray,
-    radiance_accum: &mut impl Accumulator<(RGB, usize)>,
+    radiance_accum: &mut impl Accumulator,
     rng: &mut R,
 ) where
     R: Rng,

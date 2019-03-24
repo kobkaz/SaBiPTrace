@@ -1,3 +1,4 @@
+use crate::accum::*;
 use crate::camera::Camera;
 use crate::image::*;
 use crate::manager::*;
@@ -9,6 +10,7 @@ use rand::prelude::*;
 use std::sync::{Arc, Mutex};
 
 pub mod bdpt;
+pub mod lt;
 pub mod pt;
 
 #[derive(Clone, Copy, Debug)]
@@ -16,65 +18,7 @@ pub enum Integrator {
     PathTrace,
     PathTraceWithNee,
     BidirectionalPathTrace,
-}
-
-pub trait Accumulator<T> {
-    fn accum(&mut self, color: &T);
-    fn merge(&mut self, another: &Self);
-    fn is_finite(&self) -> bool;
-}
-
-impl Accumulator<(RGB, usize)> for RGB {
-    fn accum(&mut self, color: &(RGB, usize)) {
-        *self += color.0
-    }
-
-    fn merge(&mut self, another: &Self) {
-        *self += *another
-    }
-
-    fn is_finite(&self) -> bool {
-        self.is_finite()
-    }
-}
-
-impl Accumulator<(RGB, usize)> for Vec<RGB> {
-    fn accum(&mut self, (color, len): &(RGB, usize)) {
-        if *len < self.len() {
-            self[*len] += *color;
-        }
-    }
-
-    fn merge(&mut self, another: &Self) {
-        let l = self.len().min(another.len());
-        for i in 0..l {
-            self[i] += another[i]
-        }
-    }
-
-    fn is_finite(&self) -> bool {
-        self.iter().all(RGB::is_finite)
-    }
-}
-
-impl<T, U, V> Accumulator<T> for (U, V)
-where
-    U: Accumulator<T>,
-    V: Accumulator<T>,
-{
-    fn accum(&mut self, color: &T) {
-        self.0.accum(color);
-        self.1.accum(color);
-    }
-
-    fn merge(&mut self, another: &Self) {
-        self.0.merge(&another.0);
-        self.1.merge(&another.1);
-    }
-
-    fn is_finite(&self) -> bool {
-        self.0.is_finite() && self.1.is_finite()
-    }
+    LightTrace,
 }
 
 #[derive(Clone)]
@@ -92,10 +36,7 @@ pub struct RenderConfig {
 pub struct Renderer;
 
 impl Renderer {
-    pub fn render<
-        T: Send + Clone + Accumulator<(RGB, usize)> + 'static,
-        C: Send + Clone + Camera + 'static,
-    >(
+    pub fn render<T: Send + Clone + Accumulator + 'static, C: Send + Clone + Camera + 'static>(
         &self,
         scene: Arc<Scene>,
         camera: &C,
@@ -132,7 +73,7 @@ impl Renderer {
         }
     }
 
-    fn render_thread<T: Clone + Accumulator<(RGB, usize)>>(
+    fn render_thread<T: Clone + Accumulator>(
         scene: &Scene,
         camera: impl Camera,
         film: FilmArc<T>,
@@ -142,6 +83,10 @@ impl Renderer {
         manager: Arc<Mutex<Manager>>,
     ) {
         let mut rng = SmallRng::from_entropy();
+
+        //for LightTrace
+        let mut local_film = FilmVec::new(film.w(), film.h(), accum_init.clone());
+        let mut total_sample = 0;
 
         loop {
             let rx = manager.lock().unwrap().next(thread_id);
@@ -155,41 +100,96 @@ impl Renderer {
                 }
             };
 
-            let xi = task.chunk as u32;
-            let spp = task.amount;
-            let mut samples = vec![];
-            for yi in 0..film.h() {
-                for _i in 0..spp {
-                    let mut radiance = accum_init.clone();
-                    let (u, v) = film.sample_uv_in_pixel(xi as i32, yi as i32, &mut rng);
-                    let ray = camera.sample_ray(u, v, &mut rng);
-                    match integrator {
-                        Integrator::PathTrace => {
-                            pt::radiance(false, scene, &ray, &mut radiance, &mut rng)
-                        }
-                        Integrator::PathTraceWithNee => {
-                            pt::radiance(true, scene, &ray, &mut radiance, &mut rng)
-                        }
-                        Integrator::BidirectionalPathTrace => {
-                            bdpt::radiance(scene, &ray, &mut radiance, &mut rng)
-                        }
-                    };
-                    if radiance.is_finite() {
-                        samples.push((xi, yi, radiance));
-                    } else {
-                        warn!("radiance is not finite");
+            match integrator {
+                Integrator::PathTrace => Self::pixl_wise_render(
+                    task,
+                    scene,
+                    &camera,
+                    &film,
+                    &accum_init,
+                    &mut rng,
+                    &mut |scene, ray, radiance, rng| pt::radiance(false, scene, ray, radiance, rng),
+                ),
+                Integrator::PathTraceWithNee => Self::pixl_wise_render(
+                    task,
+                    scene,
+                    &camera,
+                    &film,
+                    &accum_init,
+                    &mut rng,
+                    &mut |scene, ray, radiance, rng| pt::radiance(true, scene, ray, radiance, rng),
+                ),
+                Integrator::BidirectionalPathTrace => Self::pixl_wise_render(
+                    task,
+                    scene,
+                    &camera,
+                    &film,
+                    &accum_init,
+                    &mut rng,
+                    &mut bdpt::radiance,
+                ),
+                Integrator::LightTrace => {
+                    let _xi = task.chunk;
+                    let spp = task.amount;
+                    for _i in 0..film.h() * spp {
+                        lt::sample(scene, &camera, &mut local_film, &accum_init, &mut rng);
                     }
+                    total_sample += film.h() * spp;
                 }
             }
+        }
+        film.with_lock(|mut film| {
+            for xi in 0..film.w() {
+                for yi in 0..film.h() {
+                    let pixel = film.at_mut(xi, yi);
+                    let local = &mut local_film.at_mut(xi, yi).accum;
+                    pixel.accum.merge(local);
+                    pixel.samples += total_sample
+                }
+            }
+        })
+        .unwrap();
+    }
 
-            film.with_lock(|mut film| {
-                for (xi, yi, sample) in samples {
+    fn pixl_wise_render<T, R, F>(
+        task: Task,
+        scene: &Scene,
+        camera: &impl Camera,
+        film: &FilmArc<T>,
+        accum_init: &T,
+        rng: &mut R,
+        f: &mut F,
+    ) where
+        T: Clone + Accumulator,
+        R: Rng + ?Sized,
+        F: FnMut(&Scene, &Ray, &mut T, &mut R),
+    {
+        let xi = task.chunk;
+        let spp = task.amount;
+        let mut samples = vec![];
+        for yi in 0..film.h() {
+            for _i in 0..spp {
+                let mut radiance = accum_init.clone();
+                let (u, v) = film.sample_uv_in_pixel(xi as i32, yi as i32, rng);
+                let ray = camera.sample_ray(u, v, rng);
+                f(scene, &ray, &mut radiance, rng);
+                if radiance.is_finite() {
+                    samples.push((xi, yi, radiance));
+                } else {
+                    warn!("radiance is not finite");
+                }
+            }
+        }
+
+        film.with_lock(|mut film| {
+            for (xi, yi, sample) in samples {
+                if xi < film.w() && yi < film.h() {
                     let pixel = film.at_mut(xi, yi);
                     pixel.accum.merge(&sample);
                     pixel.samples += 1;
                 }
-            })
-            .unwrap();
-        }
+            }
+        })
+        .unwrap();
     }
 }

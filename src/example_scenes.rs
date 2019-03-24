@@ -170,13 +170,13 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.1, 1.0, 0.0);
         let fov_degree = 45.0;
-        let radius = 1.0;
-        let f = 10.0;
-        let focus_dist = 250.0;
-        //PinHole::new(origin, view_at, view_up, fov_degree, Some(0.1))
-        ThinLens::new_with_focus_distance(
-            origin, view_at, view_up, radius, f, focus_dist, fov_degree,
-        )
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+        //let radius = 1.0;
+        //let f = 10.0;
+        //let focus_dist = 250.0;
+        //ThinLens::new_with_focus_distance(
+        //    origin, view_at, view_up, radius, f, focus_dist, fov_degree,
+        //)
     };
 
     (camera, scene)
@@ -718,6 +718,35 @@ pub fn make_ball_triangle_mirror() -> (PinHole, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_emissive_triangle() -> (PinHole, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-10.0, -10.0, 0.0),
+            P3::new(10.0, -10.0, 0.0),
+            P3::new(0.0, 10.0, 0.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(0.5)),
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 20.0;
         PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 
