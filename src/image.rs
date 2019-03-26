@@ -1,5 +1,6 @@
 use crate::accum::*;
 use crate::*;
+use log::*;
 use rand::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::sync::*;
@@ -40,6 +41,7 @@ impl Image {
 
     pub fn write_exr(&self, filename: &str) {
         use openexr::*;
+        info!("writing to {}", filename);
 
         let mut file = std::fs::File::create(filename).unwrap();
         let mut file = ScanlineOutputFile::new(
