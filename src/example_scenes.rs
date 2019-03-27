@@ -752,3 +752,41 @@ pub fn make_emissive_triangle() -> (PinHole, Scene) {
 
     (camera, scene)
 }
+
+pub fn make_debug() -> (PinHole, Scene) {
+    use material::materials::*;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(40.0, 0.0, 0.0),
+            radius: 30.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-40.0, 0.0, 0.0),
+            radius: 30.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(1.0)).into(),
+        emission: None,
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+    };
+
+    (camera, scene)
+}

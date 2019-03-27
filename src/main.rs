@@ -135,7 +135,7 @@ fn main() -> Result<(), std::io::Error> {
         image::Film::new(16 * s, 9 * s, v.clone()).into_arc()
     };
 
-    let (camera, scene) = example_scenes::make_box();
+    let (camera, scene) = example_scenes::make_debug();
     let scene = Arc::new(scene);
 
     let film_config = FilmConfig {

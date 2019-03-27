@@ -62,9 +62,13 @@ pub fn radiance<R: ?Sized>(
                             warn!("> light_sample.pdf {:?}", light_sample.pdf);
                         } else {
                             let pt_pdf_omega = hit.material.sample_win_pdf(&wout_local, &win_local);
-                            let pt_pdf_area = pt_pdf_omega * (light_normal.dot(&light_dir)).abs()
-                                / hit.geom.dist
-                                / hit.geom.dist;
+                            let bsdf_cos = hit.material.bsdf_cos(&win_local, &wout_local, false);
+                            let rr_chance_troughput = throughput * bsdf_cos / pt_pdf_omega;
+                            let rr_chance = (rr_chance_troughput.max() * 0.8).min(1.0).max(0.1);
+                            let sq_distance = (light_pos - hit.pos()).norm_squared();
+                            let pt_pdf_area =
+                                rr_chance * pt_pdf_omega * (light_normal.dot(&light_dir)).abs()
+                                    / sq_distance;
                             let nee_pdf_area = light_sample.pdf;
                             let mis_weight = MIS_PDF_WEIGHT_NEE * nee_pdf_area
                                 / (MIS_PDF_WEIGHT_PT * pt_pdf_area
