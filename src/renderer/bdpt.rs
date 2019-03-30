@@ -1,5 +1,6 @@
 use super::*;
 use scene::Scene;
+use std::borrow::Cow::{Owned, Borrowed};
 
 #[allow(unused_variables)]
 fn strategy_weight(s: usize, t: usize) -> Option<f32> {
@@ -213,9 +214,9 @@ fn extend_path_pdf<'a>(
         init_state
     };
 
-    let reflection_vertices = Some(terminal_vertex.clone())
+    let reflection_vertices = Some(Owned(terminal_vertex.clone()))
         .into_iter()
-        .chain(vs_latter.iter().rev().cloned());
+        .chain(vs_latter.iter().rev().map(Borrowed));
     let target_vertices = vs_latter
         .iter()
         .map(|v| (*v.pos(), *v.gnorm(), v.hit.material.all_specular()))
