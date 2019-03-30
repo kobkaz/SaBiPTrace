@@ -74,7 +74,10 @@ impl MaterialImpl for Transparent {
         }
     }
 
-    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32 {
+    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3, specular_component: bool) -> f32 {
+        if !specular_component {
+            return 0.0;
+        }
         let cos_out = wout_local[2];
         let sin_out = (1.0 - cos_out * cos_out).sqrt();
         let (index_in, index_out) = if cos_out > 0.0 {
@@ -139,6 +142,10 @@ impl MaterialImpl for Transparent {
     }
 
     fn all_specular(&self) -> bool {
+        true
+    }
+
+    fn has_specular(&self) -> bool {
         true
     }
 }

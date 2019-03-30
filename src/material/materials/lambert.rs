@@ -22,7 +22,11 @@ impl MaterialImpl for Lambert {
         }
     }
 
-    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32 {
+    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3, specular_component: bool) -> f32 {
+        if specular_component {
+            return 0.0;
+        }
+
         let sgn: f32 = if wout_local[2] > 0.0 { 1.0 } else { -1.0 };
         let next_dir = CosUnitHemisphere {
             normal: sgn * V3::z(),
@@ -44,6 +48,10 @@ impl MaterialImpl for Lambert {
     }
 
     fn all_specular(&self) -> bool {
+        false
+    }
+
+    fn has_specular(&self) -> bool {
         false
     }
 }

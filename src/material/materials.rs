@@ -22,7 +22,7 @@ pub trait MaterialImpl {
             .map(|(win_local, bsdf, spec)| (win_local, bsdf * win_local[2].abs(), spec))
     }
 
-    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32;
+    fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3, specular_component: bool) -> f32;
 
     fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB;
 
@@ -31,6 +31,7 @@ pub trait MaterialImpl {
     }
 
     fn all_specular(&self) -> bool;
+    fn has_specular(&self) -> bool;
 }
 
 mod lambert;

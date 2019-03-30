@@ -54,7 +54,6 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
     use material::materials::*;
     use material::Material;
     use shape::shapes::*;
-    const R: f32 = 10000.0;
     const L: f32 = 50.0;
     let mut objects = vec![];
 
@@ -63,6 +62,17 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
             P3::new(-4.0 * L, -L, -L),
             P3::new(4.0 * L, -L, -L),
             P3::new(0.0, 4.0 * L, -L),
+        ])
+        .into(),
+        material: Lambert(RGB::new(0.5, 0.5, 0.5)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(-4.0 * L, -L, 300.0 + L),
+            P3::new(4.0 * L, -L, 300.0 + L),
+            P3::new(0.0, 4.0 * L, 300.0 + L),
         ])
         .into(),
         material: Lambert(RGB::new(0.5, 0.5, 0.5)).into(),
@@ -87,7 +97,7 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
             P3::new(-L - 20.0, 0.0, L * 10.0),
         ])
         .into(),
-        material: Lambert(RGB::new(0.2, 0.2, 1.0)).into(),
+        material: Lambert(RGB::new(0.2, 0.2, 0.8)).into(),
         emission: None,
     });
 
@@ -119,8 +129,18 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
             radius: 10.0,
         }
         .into(),
-        material: Mirror(RGB::all(0.0)).into(),
+        material: Lambert(RGB::all(0.0)).into(),
         emission: Some(RGB::all(50.0)),
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, -40.0, 80.0),
+            radius: 10.0,
+        }
+        .into(),
+        material: Mirror(RGB::all(1.0)).into(),
+        emission: None,
     });
 
     objects.push(object::SimpleObject {
@@ -144,12 +164,12 @@ pub fn make_box() -> (impl Camera + Clone, Scene) {
             radius: 30.0,
         }
         .into(),
-        material: Lambert(RGB::new(0.0, 1.0, 0.5)).into(),
-        //material: Material::mix(
-        //    0.1,
-        //    Mirror(RGB::all(1.0)).into(),
-        //    Lambert(RGB::all(1.0)).into(),
-        //),
+        //material: Lambert(RGB::new(0.0, 1.0, 0.5)).into(),
+        material: Material::mix(
+            0.1,
+            Mirror(RGB::new(0.8, 0.8, 0.2)).into(),
+            Lambert(RGB::new(0.8, 0.8, 0.2)).into(),
+        ),
         emission: None,
     });
 
@@ -785,6 +805,216 @@ pub fn make_debug() -> (PinHole, Scene) {
         let view_at = P3::new(0.0, 0.0, 0.0);
         let view_up = V3::new(0.0, 1.0, 0.0);
         let fov_degree = 45.0;
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_mix_balls() -> (PinHole, Scene) {
+    use material::materials::*;
+    use material::Material::Mix;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    for i in 0..5 {
+        let x = (i as f32 - 2.0) * 50.0;
+        objects.push(object::SimpleObject {
+            shape: Sphere {
+                center: P3::new(x, 30.0, 0.0),
+                radius: 20.0,
+            }
+            .into(),
+            material: Mix(
+                i as f32 / 9.0,
+                Box::new(Lambert(RGB::all(1.0)).into()),
+                Box::new(Mirror(RGB::all(1.0)).into()),
+            ),
+            emission: None,
+        });
+
+        objects.push(object::SimpleObject {
+            shape: Sphere {
+                center: P3::new(x, -30.0, 0.0),
+                radius: 20.0,
+            }
+            .into(),
+            material: Mix(
+                (i + 5) as f32 / 9.0,
+                Box::new(Lambert(RGB::all(1.0)).into()),
+                Box::new(Mirror(RGB::all(1.0)).into()),
+            ),
+            emission: None,
+        });
+    }
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 100.0, 400.0),
+            radius: 10.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1e3)),
+    });
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, -100.0, 400.0),
+            radius: 10.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1e3)),
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+    };
+
+    (camera, scene)
+}
+
+pub fn make_mix_balls_2() -> (PinHole, Scene) {
+    use material::materials::*;
+    use material::Material::Mix;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(-50.0, 0.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Mix(
+            0.5,
+            Box::new(Lambert(RGB::all(1.0)).into()),
+            Box::new(Mirror(RGB::all(1.0)).into()),
+        ),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Mix(
+            0.25,
+            Box::new(Lambert(RGB::all(1.0)).into()),
+            Box::new(Mirror(RGB::all(1.0)).into()),
+        ),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, -50.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Mix(
+            0.75,
+            Box::new(Lambert(RGB::all(1.0)).into()),
+            Box::new(Mirror(RGB::all(1.0)).into()),
+        ),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(50.0, 00.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.5)).into(),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        shape: Sphere {
+            center: P3::new(0.0, 00.0, 0.0),
+            radius: 20.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1.0)),
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 45.0;
+        PinHole::new(origin, view_at, view_up, fov_degree, None)
+    };
+
+    (camera, scene)
+}
+pub fn make_test_mix() -> (PinHole, Scene) {
+    use material::materials::*;
+    use material::Material;
+    use shape::shapes::*;
+    let mut objects = vec![];
+
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(0.0, 0.0, 0.0),
+            P3::new(0.0, 100.0, 0.0),
+            P3::new(100.0, 0.0, 50.0),
+        ])
+        .into(),
+        material: Lambert(RGB::all(0.5)).into(),
+        emission: None,
+    });
+    objects.push(object::SimpleObject {
+        shape: Triangle::new([
+            P3::new(0.0, 0.0, 0.0),
+            P3::new(0.0, -100.0, 0.0),
+            P3::new(100.0, 0.0, 50.0),
+        ])
+        .into(),
+        material: Material::mix(
+            0.5,
+            Lambert(RGB::all(1.0)).into(),
+            //Lambert(RGB::all(0.0)).into(),
+            Mirror(RGB::all(1.0)).into(),
+        ),
+        emission: None,
+    });
+
+    objects.push(object::SimpleObject {
+        //shape: Triangle::new([
+        //    P3::new(-10.0, 0.0, 0.0),
+        //    P3::new(10.0, 0.0, 0.0),
+        //    P3::new(0.0, 10.0, 0.0),
+        //])
+        //.into(),
+        shape: Sphere {
+            center: P3::new(-100.0, 0.0, 0.0),
+            radius: 80.0,
+        }
+        .into(),
+        material: Lambert(RGB::all(0.0)).into(),
+        emission: Some(RGB::all(1.0)),
+    });
+
+    let scene = Scene::new(objects);
+
+    let camera = {
+        let origin = P3::new(0.0, 0.0, 300.0);
+        let view_at = P3::new(0.0, 0.0, 0.0);
+        let view_up = V3::new(0.0, 1.0, 0.0);
+        let fov_degree = 90.0;
         PinHole::new(origin, view_at, view_up, fov_degree, None)
     };
 

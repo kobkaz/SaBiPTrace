@@ -41,13 +41,24 @@ impl Material {
             Lambert(m) => m.sample_win(wout_local, rng),
             Mirror(m) => m.sample_win(wout_local, rng),
             Transparent(m) => m.sample_win(wout_local, rng),
-            Mix(r, m1, m2) => {
-                //TODO: MIS
+            Mix(_, m1, m2) => {
                 use rand::distributions::Uniform;
-                if Uniform::new(0.0, 1.0).sample(rng) < *r {
-                    m1.sample_win(wout_local, rng)
+                let m = if Uniform::new(0.0, 1.0).sample(rng) < 0.5 {
+                    &m1
                 } else {
-                    m2.sample_win(wout_local, rng)
+                    &m2
+                };
+                let pdf::PdfSample {
+                    value: (win_local, _, specular),
+                    ..
+                } = m.sample_win(wout_local, rng);
+                pdf::PdfSample {
+                    value: (
+                        win_local,
+                        self.bsdf(wout_local, &win_local, specular),
+                        specular,
+                    ),
+                    pdf: self.sample_win_pdf(wout_local, &win_local, specular),
                 }
             }
         }
@@ -65,24 +76,39 @@ impl Material {
             Lambert(m) => m.sample_win_cos(wout_local, rng),
             Mirror(m) => m.sample_win_cos(wout_local, rng),
             Transparent(m) => m.sample_win_cos(wout_local, rng),
-            Mix(r, m1, m2) => {
-                //TODO: MIS
+            Mix(_, m1, m2) => {
                 use rand::distributions::Uniform;
-                if Uniform::new(0.0, 1.0).sample(rng) < *r {
-                    m1.sample_win_cos(wout_local, rng)
+                let m = if Uniform::new(0.0, 1.0).sample(rng) < 0.5 {
+                    &m1
                 } else {
-                    m2.sample_win_cos(wout_local, rng)
+                    &m2
+                };
+                let pdf::PdfSample {
+                    value: (win_local, _, specular),
+                    ..
+                } = m.sample_win_cos(wout_local, rng);
+                pdf::PdfSample {
+                    value: (
+                        win_local,
+                        self.bsdf_cos(&win_local, &wout_local, specular),
+                        specular,
+                    ),
+                    pdf: self.sample_win_pdf(wout_local, &win_local, specular),
                 }
             }
         }
     }
 
-    pub fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3) -> f32 {
+    pub fn sample_win_pdf(&self, wout_local: &V3, win_local: &V3, specular_component: bool) -> f32 {
         match self {
-            Lambert(m) => m.sample_win_pdf(wout_local, win_local),
-            Mirror(m) => m.sample_win_pdf(wout_local, win_local),
-            Transparent(m) => m.sample_win_pdf(wout_local, win_local),
-            Mix(_r, _m1, _m2) => unimplemented!(),
+            Lambert(m) => m.sample_win_pdf(wout_local, win_local, specular_component),
+            Mirror(m) => m.sample_win_pdf(wout_local, win_local, specular_component),
+            Transparent(m) => m.sample_win_pdf(wout_local, win_local, specular_component),
+            Mix(_r, m1, m2) => {
+                (m1.sample_win_pdf(wout_local, win_local, specular_component)
+                    + m2.sample_win_pdf(wout_local, win_local, specular_component))
+                    / 2.0
+            }
         }
     }
 
@@ -119,6 +145,15 @@ impl Material {
             Mirror(m) => m.all_specular(),
             Transparent(m) => m.all_specular(),
             Mix(_, m1, m2) => m1.all_specular() && m2.all_specular(),
+        }
+    }
+
+    pub fn has_specular(&self) -> bool {
+        match self {
+            Lambert(m) => m.has_specular(),
+            Mirror(m) => m.has_specular(),
+            Transparent(m) => m.has_specular(),
+            Mix(_, m1, m2) => m1.has_specular() || m2.has_specular(),
         }
     }
 }

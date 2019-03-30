@@ -26,19 +26,19 @@ impl Vertex {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct ExtVertex {
     pdf_area: f32,
     pdf_area_ratio: f32,
-    specular: bool,
+    all_specular: bool,
 }
 
 impl ExtVertex {
-    pub fn new(pdf_area: f32, pdf_area_ratio: f32, specular: bool) -> Self {
+    pub fn new(pdf_area: f32, pdf_area_ratio: f32, all_specular: bool) -> Self {
         ExtVertex {
             pdf_area,
             pdf_area_ratio,
-            specular,
+            all_specular,
         }
     }
 }
@@ -122,131 +122,180 @@ where
 
 fn extend_path_pdf<'a>(
     ray_delta: bool,
-    origin: &P3,
+    origin: Option<&P3>,
     vs_init: &'a [Vertex],
     vs_latter: &'a [Vertex],
     v_last: Option<(P3, V3, bool)>,
 ) -> impl Iterator<Item = ExtVertex> + 'a {
     use either::Either::{Left, Right};
-    assert!(!vs_init.is_empty() || !vs_latter.is_empty());
+    if origin.is_none() {
+        assert!(vs_init.is_empty());
+    }
+    {
+        let mut vs = if origin.is_none() { 0 } else { 1 };
+        vs += if v_last.is_none() { 0 } else { 1 };
+        vs += vs_init.len();
+        vs += vs_latter.len();
+        assert!(vs >= 2);
+    }
+
+    //if origin is None or vs_init is empty, make them from vs_latter
+    let (origin, vs_init, vs_latter, connection_vertices) = if !vs_init.is_empty() {
+        (origin.unwrap(), Left(vs_init), vs_latter, 2)
+    } else {
+        let (origin, pseudo_init_original, latter, connection_vertices) =
+            if let Some(origin) = origin {
+                (
+                    origin,
+                    &vs_latter[vs_latter.len() - 1],
+                    &vs_latter[0..vs_latter.len() - 1],
+                    1,
+                )
+            } else {
+                (
+                    vs_latter[vs_latter.len() - 1].pos(),
+                    &vs_latter[vs_latter.len() - 2],
+                    &vs_latter[0..vs_latter.len() - 2],
+                    0,
+                )
+            };
+        let w = origin - pseudo_init_original.pos();
+        let r = w.norm();
+        let w_local = (pseudo_init_original.hit.geom.lc().w2l() * w).normalize();
+        let pdf_area = if ray_delta {
+            1.0
+        } else {
+            w_local[2].abs() / r / r
+        };
+
+        let pseudo_init = Vertex {
+            hit: pseudo_init_original.hit.clone(),
+            throughput: RGB::all(1.0),
+            specular: pseudo_init_original.specular,
+            w_local,
+            pdf_area,
+            pdf_area_ratio: pdf_area,
+        };
+        (origin, Right(pseudo_init), latter, connection_vertices)
+    };
 
     struct State {
         depth: usize,
         dir: V3,
         throughput: RGB,
         pdf_area: f32,
+        connection_vertices: usize,
     };
 
-    let (init, init_state) = {
-        let init_pdf_area = vs_init.last().map(|v| v.pdf_area).unwrap_or_else(|| {
-            if ray_delta {
-                1.0
-            } else {
-                let v = &vs_latter.last().unwrap().hit.geom;
-                let r = origin - v.pos;
-                let r_norm = r.norm();
-                let p = r.dot(&v.gnorm).abs() / r_norm / r_norm / r_norm;
-                p
+    let (terminal_vertex, vs_init_len) = match vs_init {
+        Left(vs) => (vs.last().unwrap(), vs.len()),
+        Right(ref v) => (v, 1),
+    };
+
+    let init_state = {
+        let terminal_prev = match vs_init {
+            Left(vs) => {
+                if vs.len() >= 2 {
+                    vs[vs.len() - 2].pos()
+                } else {
+                    origin
+                }
             }
-        });
-        let init_raydir = {
-            let p = vs_init
-                .last()
-                .unwrap_or_else(|| &vs_latter.last().unwrap())
-                .pos();
-            let p_prev = if vs_init.len() <= 1 {
-                origin
-            } else {
-                vs_init[vs_init.len() - 2].pos()
-            };
-            (p - p_prev).normalize()
-        };
-        let init = if vs_init.is_empty() {
-            Left(
-                vs_latter
-                    .last()
-                    .map(|v| ExtVertex::new(init_pdf_area, init_pdf_area, v.specular))
-                    .into_iter(),
-            )
-        } else {
-            Right(
-                vs_init
-                    .iter()
-                    .map(|v| ExtVertex::new(v.pdf_area, v.pdf_area_ratio, v.specular)),
-            )
+            _ => origin,
         };
         let init_state = State {
-            depth: if vs_init.len() == 0 {
-                0
-            } else {
-                vs_init.len() - 1
-            },
-            dir: init_raydir,
-            throughput: vs_init
-                .last()
-                .map(|v| v.throughput)
-                .unwrap_or(RGB::all(1.0)),
-            pdf_area: init_pdf_area,
+            depth: vs_init_len - 1,
+            dir: (terminal_prev - terminal_vertex.pos()).normalize(),
+            throughput: terminal_vertex.throughput,
+            pdf_area: terminal_vertex.pdf_area,
+            connection_vertices,
         };
-        (init, init_state)
+        init_state
     };
 
-    let vs = vs_init.last().into_iter().chain(vs_latter.iter().rev());
-    let next_vs = {
-        let next_vs = vs_latter
-            .iter()
-            .map(|v| (*v.pos(), *v.gnorm(), v.specular))
-            .rev()
-            .chain(v_last);
-        if vs_init.is_empty() {
-            next_vs.skip(1)
-        } else {
-            next_vs.skip(0)
+    let reflection_vertices = Some(terminal_vertex.clone())
+        .into_iter()
+        .chain(vs_latter.iter().rev().cloned());
+    let target_vertices = vs_latter
+        .iter()
+        .map(|v| (*v.pos(), *v.gnorm(), v.hit.material.all_specular()))
+        .rev()
+        .chain(v_last);
+
+    let before_connection = match vs_init {
+        Left(vs_init) => {
+            let vs = vs_init.iter().map(|v| {
+                ExtVertex::new(v.pdf_area, v.pdf_area_ratio, v.hit.material.all_specular())
+            });
+            Left(vs)
+        }
+        Right(ref v) => {
+            let v = ExtVertex::new(v.pdf_area, v.pdf_area_ratio, v.hit.material.all_specular());
+            let once = std::iter::once(v);
+            Right(once)
         }
     };
 
     assert!(init_state.throughput.max() >= 0.0);
-    let latter = vs.zip(next_vs).scan(init_state, move |state, (v, next)| {
-        let (next_pos, next_normal, next_specular) = next;
-        let v_geom = &v.hit.geom;
-        let lc = v_geom.lc();
-        let wout_local = lc.w2l() * -state.dir;
-        let to_next = next_pos - v_geom.pos;
-        let r = to_next.norm();
-        let win = to_next / r;
-        let win_local = lc.w2l() * win;
-        let dir_pdf_omega = v.hit.material.sample_win_pdf(&wout_local, &win_local);
-        let bsdf_cos = v.hit.material.bsdf_cos(&win_local, &wout_local, v.specular);
-        assert!(bsdf_cos.max() >= 0.0);
-        assert!(dir_pdf_omega >= 0.0);
+    let latter =
+        reflection_vertices
+            .zip(target_vertices)
+            .scan(init_state, move |state, (v, next)| {
+                let (next_pos, next_normal, next_all_specular) = next;
+                let v_geom = &v.hit.geom;
+                let lc = v_geom.lc();
+                let wout_local = lc.w2l() * state.dir;
+                let to_next = next_pos - v_geom.pos;
+                let r = to_next.norm();
+                let win = to_next / r;
+                let win_local = lc.w2l() * win;
+                if state.connection_vertices > 0 {
+                    if v.hit.material.all_specular() {
+                        panic!("connecting specular {} {}", vs_init_len, vs_latter.len());
+                    }
+                }
+                let specular_component = state.connection_vertices == 0 && v.specular;
+                let dir_pdf_omega =
+                    v.hit
+                        .material
+                        .sample_win_pdf(&wout_local, &win_local, specular_component);
+                let bsdf_cos = v
+                    .hit
+                    .material
+                    .bsdf_cos(&win_local, &wout_local, specular_component);
+                assert!(bsdf_cos.max() >= 0.0);
+                assert!(dir_pdf_omega >= 0.0);
 
-        let mut pdf_area_ratio = 1.0;
-        state.throughput *= bsdf_cos / dir_pdf_omega;
-        state.pdf_area *= dir_pdf_omega;
-        pdf_area_ratio *= dir_pdf_omega;
-        if !v.specular {
-            state.pdf_area *= win.dot(&next_normal).abs() / r / r;
-            pdf_area_ratio *= win.dot(&next_normal).abs() / r / r;
-        }
-        let cont_prob = continue_chance_from_throughput(&state.throughput, state.depth);
-        state.throughput /= cont_prob;
-        state.pdf_area *= cont_prob;
-        pdf_area_ratio *= cont_prob;
-        state.dir = win;
-        state.depth += 1;
+                let mut pdf_area_ratio = 1.0;
+                state.throughput *= bsdf_cos / dir_pdf_omega;
+                state.pdf_area *= dir_pdf_omega;
+                pdf_area_ratio *= dir_pdf_omega;
+                if !specular_component {
+                    state.pdf_area *= win.dot(&next_normal).abs() / r / r;
+                    pdf_area_ratio *= win.dot(&next_normal).abs() / r / r;
+                }
+                let cont_prob = continue_chance_from_throughput(&state.throughput, state.depth);
+                state.throughput /= cont_prob;
+                state.pdf_area *= cont_prob;
+                pdf_area_ratio *= cont_prob;
+                state.depth += 1;
+                state.dir = -win;
+                if state.connection_vertices > 0 {
+                    state.connection_vertices -= 1;
+                }
 
-        if pdf_area_ratio > 0.0 {
-            Some(ExtVertex {
-                pdf_area: state.pdf_area,
-                pdf_area_ratio,
-                specular: next_specular,
-            })
-        } else {
-            None
-        }
-    });
+                if pdf_area_ratio > 0.0 {
+                    Some(ExtVertex {
+                        pdf_area: state.pdf_area,
+                        pdf_area_ratio,
+                        all_specular: next_all_specular,
+                    })
+                } else {
+                    None
+                }
+            });
 
-    init.chain(latter)
+    before_connection.chain(latter)
 }
 
 fn mis_weight(
@@ -266,10 +315,16 @@ fn mis_weight(
     assert!(strategy_weight(original_s, original_t).is_some());
     assert!(!eye_vs.is_empty());
     assert!(original_t >= 2);
+    if !eye_vs.is_empty() && original_s != 0 {
+        assert!(!eye_vs.last().unwrap().hit.material.all_specular())
+    }
+    if !light_vs.is_empty() && original_t != 0 {
+        assert!(!light_vs.last().unwrap().hit.material.all_specular())
+    }
 
     let eye_extended: Vec<_> = extend_path_pdf(
         true,
-        &ray.origin,
+        Some(&ray.origin),
         eye_vs,
         light_vs,
         light_sample.map(|ls| (ls.pos, ls.normal, false)),
@@ -288,29 +343,39 @@ fn mis_weight(
             assert!(light.hit.emission.is_some());
             light_pos_pdf *= scene.sample_light_pdf(&light_pos, light.hit.obj_ix);
             light_dir_pdf *= 1.0; // TODO direction pdf
-            extend_path_pdf(false, &light_pos, &[], &eye_vs[0..eye_vs.len() - 1], None).collect()
+
+            extend_path_pdf(false, None, &[], &eye_vs, None).collect()
         }
     } else if original_s == 1 {
         assert!(light_vs.is_empty());
         let light = light_sample.unwrap();
         light_pos_pdf *= scene.sample_light_pdf(&light.pos, light.obj_ix);
         light_dir_pdf *= 1.0; // TODO direction pdf
-        extend_path_pdf(false, &light.pos, &[], &eye_vs, None).collect()
+
+        extend_path_pdf(false, Some(&light.pos), &[], &eye_vs, None).collect()
     } else {
         let light = light_sample.unwrap();
         light_pos_pdf *= scene.sample_light_pdf(&light.pos, light.obj_ix);
         light_dir_pdf *= 1.0; // TODO direction pdf
-        extend_path_pdf(false, &light.pos, &light_vs, &eye_vs, None).collect()
+
+        extend_path_pdf(false, Some(&light.pos), &light_vs, &eye_vs, None).collect()
     };
 
     let pdfs_r: Vec<f32> = (0..=original_s + original_t - 2)
         .scan(1.0, |r_pdf, s| {
             let t = original_s + original_t - s;
             assert!(t >= 2);
+
+            let c = strategy_weight(s, t).unwrap_or(0.0);
+
             if t >= eye_extended.len() + 2 {
                 return Some(0.0);
             } else if t == eye_extended.len() + 1 {
-                return Some(*r_pdf);
+                if s != 0 && eye_extended[t - 2].all_specular {
+                    return Some(0.0);
+                } else {
+                    return Some(c * *r_pdf);
+                }
             }
 
             *r_pdf /= eye_extended[t - 1].pdf_area_ratio;
@@ -327,8 +392,18 @@ fn mis_weight(
                 *r_pdf *= light_extended[s - 2].pdf_area_ratio;
             }
 
-            let c = strategy_weight(s, t).unwrap_or(0.0);
-            Some(c * *r_pdf)
+            let e_specular = eye_extended[t - 2].all_specular;
+            let l_specular = if s < 2 {
+                //assume no directional light
+                false
+            } else {
+                light_extended[s - 2].all_specular
+            };
+            if s != 0 && (e_specular || l_specular) {
+                Some(0.0)
+            } else {
+                Some(c * *r_pdf)
+            }
         })
         .collect();
     let sum_r = pdfs_r.iter().sum::<f32>();
@@ -425,8 +500,10 @@ pub fn radiance<R: ?Sized>(
                     emission: light_emission,
                     ..
                 } = light_sample.value;
-                if !scene.visible(light_pos, hit.pos()) {
-                    (RGB::all(0.0), 0.0)
+                if v_eye.hit.material.all_specular() {
+                    continue;
+                } else if !scene.visible(light_pos, hit.pos()) {
+                    continue;
                 } else {
                     let g = hit.geom.g(light_pos, light_normal);
                     let light_dir = (light_pos - hit.pos()).normalize();
@@ -463,7 +540,11 @@ pub fn radiance<R: ?Sized>(
                     w_local: l_win_local,
                     ..
                 } = v_light;
-                if !scene.visible(e_hit.pos(), l_hit.pos()) {
+                if v_eye.hit.material.all_specular() {
+                    continue;
+                } else if v_light.hit.material.all_specular() {
+                    continue;
+                } else if !scene.visible(e_hit.pos(), l_hit.pos()) {
                     continue;
                 }
                 let e_to_l = (l_hit.pos() - e_hit.pos()).normalize();

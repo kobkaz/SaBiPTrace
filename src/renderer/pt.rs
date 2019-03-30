@@ -61,7 +61,8 @@ pub fn radiance<R: ?Sized>(
                             warn!("> g {:?}", g);
                             warn!("> light_sample.pdf {:?}", light_sample.pdf);
                         } else {
-                            let pt_pdf_omega = hit.material.sample_win_pdf(&wout_local, &win_local);
+                            let pt_pdf_omega =
+                                hit.material.sample_win_pdf(&wout_local, &win_local, false);
                             let bsdf_cos = hit.material.bsdf_cos(&win_local, &wout_local, false);
                             let rr_chance_troughput = throughput * bsdf_cos / pt_pdf_omega;
                             let rr_chance = (rr_chance_troughput.max() * 0.8).min(1.0).max(0.1);
@@ -83,6 +84,11 @@ pub fn radiance<R: ?Sized>(
             let next = hit.material.sample_win_cos(&wout_local, rng);
             let win_local = next.value.0;
             let bsdf_cos = next.value.1;
+            //if depth == 0 {
+            //    let bsdf_cos_forward = hit.material.bsdf_cos(&win_local, &wout_local, false);
+            //    dbg!((bsdf_cos.r, bsdf_cos_forward.r));
+            //    //dbg!((win_local[2].abs() / std::f32::consts::PI, bsdf_cos.r, next.pdf));
+            //}
             prev_specular = next.value.2;
             throughput *= bsdf_cos;
             throughput /= next.pdf;

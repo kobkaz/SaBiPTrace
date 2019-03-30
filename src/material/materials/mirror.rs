@@ -29,8 +29,12 @@ impl MaterialImpl for Mirror {
         }
     }
 
-    fn sample_win_pdf(&self, _wout_local: &V3, _win_local: &V3) -> f32 {
-        1.0
+    fn sample_win_pdf(&self, _wout_local: &V3, _win_local: &V3, specular_component: bool) -> f32 {
+        if specular_component {
+            1.0
+        } else {
+            0.0
+        }
     }
 
     fn bsdf(&self, win_local: &V3, wout_local: &V3, specular_component: bool) -> RGB {
@@ -48,7 +52,12 @@ impl MaterialImpl for Mirror {
             RGB::all(0.0)
         }
     }
+
     fn all_specular(&self) -> bool {
+        true
+    }
+
+    fn has_specular(&self) -> bool {
         true
     }
 }
