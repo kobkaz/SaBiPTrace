@@ -1,6 +1,6 @@
 use super::*;
 use scene::Scene;
-use std::borrow::Cow::{Owned, Borrowed};
+use std::borrow::Cow::{Borrowed, Owned};
 
 #[allow(unused_variables)]
 fn strategy_weight(s: usize, t: usize) -> Option<f32> {
