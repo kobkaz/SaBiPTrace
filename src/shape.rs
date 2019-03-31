@@ -40,6 +40,32 @@ impl AABB {
         AABB { mins, maxs }
     }
 
+    pub fn inside(&self, p: &P3) -> bool {
+        for i in 0..3 {
+            if !(self.mins[i] <= p[i] && p[i] <= self.maxs[i]) {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn min_distance_from(&self, p: &P3) -> f32 {
+        if self.inside(p) {
+            return 0.0;
+        }
+        let to_mins = p - self.mins;
+        let d_mins = to_mins[to_mins.iamin()];
+        let to_maxs = p - self.maxs;
+        let d_maxs = to_maxs[to_maxs.iamin()];
+        d_mins.min(d_maxs)
+    }
+
+    pub fn max_distance_from(&self, p: &P3) -> f32 {
+        self.iter_vertices()
+            .map(|q| (p - q).norm())
+            .fold(0.0, |x, y| x.max(y))
+    }
+
     pub fn merge(&self, another: &Self) -> Self {
         let mut mins = P3::origin();
         let mut maxs = P3::origin();
@@ -54,11 +80,19 @@ impl AABB {
         self.merge(&AABB::around(p))
     }
 
+    pub fn include_nomargin(&self, p: &P3) -> Self {
+        self.merge(&AABB::single_point(p))
+    }
+
     pub fn around(p: &P3) -> Self {
         AABB {
             mins: p - V3::new(0.1, 0.1, 0.1),
             maxs: p + V3::new(0.1, 0.1, 0.1),
         }
+    }
+
+    pub fn single_point(p: &P3) -> Self {
+        AABB { mins: *p, maxs: *p }
     }
 
     pub fn center(&self) -> P3 {
@@ -67,6 +101,24 @@ impl AABB {
 
     pub fn diag(&self) -> V3 {
         self.maxs - self.mins
+    }
+
+    pub fn longest_axis(&self) -> usize {
+        self.diag().iamax()
+    }
+
+    pub fn iter_vertices<'a>(&'a self) -> impl Iterator<Item = P3> + 'a {
+        let diag_vertices = [self.mins, self.maxs];
+        (0..8).map(move |i| {
+            let x = i ^ 2;
+            let y = (i >> 1) ^ 1;
+            let z = (i >> 2) ^ 1;
+            let mut v = P3::origin();
+            v[0] = diag_vertices[x][0];
+            v[1] = diag_vertices[y][1];
+            v[2] = diag_vertices[z][2];
+            v
+        })
     }
 
     pub fn ray_intersect(&self, ray: &Ray, mut tnear: f32, mut tfar: f32) -> Option<(f32, f32)> {

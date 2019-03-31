@@ -12,6 +12,7 @@ pub mod renderer;
 pub mod rgb;
 pub use rgb::*;
 pub mod example_scenes;
+pub mod kdtree;
 mod manager;
 pub mod scene;
 pub mod shape;
