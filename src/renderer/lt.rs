@@ -5,6 +5,26 @@ use camera::Camera;
 use image::Image;
 use scene::Scene;
 
+#[derive(Clone)]
+pub struct LightTracer;
+
+impl RandomPixelIntegrator for LightTracer {
+    fn sample<R, C, T>(
+        &self,
+        scene: &Scene,
+        camera: &C,
+        film: &mut FilmVec<T>,
+        accum_init: &T,
+        rng: &mut R,
+    ) where
+        R: Rng + ?Sized,
+        C: Camera + ?Sized,
+        T: Clone + Accumulator,
+    {
+        crate::renderer::lt::sample(scene, camera, film, accum_init, rng);
+    }
+}
+
 pub fn sample<R, C, T>(
     scene: &Scene,
     camera: &C,

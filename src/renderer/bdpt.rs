@@ -2,6 +2,23 @@ use super::*;
 use scene::Scene;
 use std::borrow::Cow::{Borrowed, Owned};
 
+#[derive(Clone)]
+pub struct BidirectionalPathTracer;
+
+impl RayRadianceIntegrator for BidirectionalPathTracer {
+    fn radiance<R: ?Sized>(
+        &self,
+        scene: &Scene,
+        ray: &Ray,
+        radiance_accum: &mut impl Accumulator,
+        rng: &mut R,
+    ) where
+        R: Rng,
+    {
+        crate::renderer::bdpt::radiance(scene, ray, radiance_accum, rng);
+    }
+}
+
 #[allow(unused_variables)]
 fn strategy_weight(s: usize, t: usize) -> Option<f32> {
     Some(1.0)

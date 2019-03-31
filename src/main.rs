@@ -42,7 +42,7 @@ struct ProgramOptions {
     report_freq: Option<f64>,
     max_spp: Option<OrInf<usize>>,
     time_limit: Option<OrInf<f64>>,
-    integrator: Option<Integrator>,
+    integrator: Option<IntegratorType>,
     nthread_limit: Option<OrInf<usize>>,
 }
 
@@ -69,13 +69,13 @@ impl ProgramOptions {
             }),
             integrator: matches.opt_str("i").and_then(|name| {
                 if name == "bdpt" {
-                    Some(Integrator::BidirectionalPathTrace)
+                    Some(IntegratorType::BidirectionalPathTrace)
                 } else if name == "pt" {
-                    Some(Integrator::PathTrace)
+                    Some(IntegratorType::PathTrace)
                 } else if name == "nee" {
-                    Some(Integrator::PathTraceWithNee)
+                    Some(IntegratorType::PathTraceWithNee)
                 } else if name == "lt" {
-                    Some(Integrator::LightTrace)
+                    Some(IntegratorType::LightTrace)
                 } else {
                     None
                 }
@@ -126,7 +126,7 @@ fn main() -> Result<(), std::io::Error> {
     let max_spp = program_options.max_spp.unwrap_or(OrInf::Only(10));
     let integrator = program_options
         .integrator
-        .unwrap_or(Integrator::PathTraceWithNee);
+        .unwrap_or(IntegratorType::PathTraceWithNee);
     let nthread_limit = program_options.nthread_limit.unwrap_or(OrInf::Inf);
 
     let v = (vec![RGB::all(0.0); 20], RGB::all(0.0));

@@ -1,4 +1,22 @@
 use super::*;
+#[derive(Clone)]
+pub struct PathTracer {
+    pub enable_nee: bool,
+}
+
+impl RayRadianceIntegrator for PathTracer {
+    fn radiance<R: ?Sized>(
+        &self,
+        scene: &Scene,
+        ray: &Ray,
+        radiance_accum: &mut impl Accumulator,
+        rng: &mut R,
+    ) where
+        R: Rng,
+    {
+        crate::renderer::pt::radiance(self.enable_nee, scene, ray, radiance_accum, rng);
+    }
+}
 
 pub fn radiance<R: ?Sized>(
     enable_nee: bool,
