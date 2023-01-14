@@ -5,6 +5,7 @@ use rand::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::sync::*;
 
+
 pub struct Image {
     w: usize,
     h: usize,
@@ -13,6 +14,7 @@ pub struct Image {
 
 impl Image {
     pub fn read_exr16(file: &str) -> Option<Self> {
+        /*
         use openexr::*;
         let mut file = std::fs::File::open(file).ok()?;
         let mut file = InputFile::new(&mut file).ok()?;
@@ -31,6 +33,8 @@ impl Image {
             h,
             buf: buf.into_iter().map(Into::into).collect(),
         })
+        */
+        unimplemented!()
     }
 
     pub fn new(w: usize, h: usize) -> Self {
@@ -40,22 +44,10 @@ impl Image {
     }
 
     pub fn write_exr(&self, filename: &str) {
-        use openexr::*;
-        info!("writing to {}", filename);
-
-        let mut file = std::fs::File::create(filename).unwrap();
-        let mut file = ScanlineOutputFile::new(
-            &mut file,
-            Header::new()
-                .set_resolution(self.w as u32, self.h as u32)
-                .add_channel("R", PixelType::FLOAT)
-                .add_channel("G", PixelType::FLOAT)
-                .add_channel("B", PixelType::FLOAT),
-        )
-        .unwrap();
-        let mut buffer = FrameBuffer::new(self.w as u32, self.h as u32);
-        buffer.insert_channels(&["R", "G", "B"], &self.buf[..]);
-        file.write_pixels(&buffer).unwrap();
+        exr::prelude::write_rgb_file(filename, self.w, self.h, |x, y| {
+            let pixel = self.at(x, y);
+            (pixel.r, pixel.g, pixel.b)
+        }).unwrap();
     }
 
     pub fn at_uv(&self, u: f32, v: f32) -> &RGB {
